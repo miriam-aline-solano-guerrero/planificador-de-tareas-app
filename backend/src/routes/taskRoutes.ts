@@ -1,29 +1,19 @@
-import { Router } from 'express'; // Importamos 'Router' de Express para poder crear las rutas
-import {
-    crearTarea,
-    getTareas,
-    getTareasId,
-    updateTarea,
-    deleteTarea
-} from '../controllers/taskController'; // Importamos TODAS las funciones del controlador de tareas
+import express from 'express';
+import { getTasks, createTask, updateTask, deleteTask } from '../controllers/taskController';
+import { protect, authorizeRoles } from '../middleware/authMiddleware';
 
-const router = Router(); // nueva instancia de Router. Este objeto 'router' nos permite definir las rutas.
+const router = express.Router();
 
-// --- Definición de Rutas para la API de Tareas ---
+// Crear una nueva tarea: Permite a admin, editor, project_manager y user crear tareas.
+router.post('/', protect, authorizeRoles('admin', 'editor', 'project_manager', 'user'), createTask);
 
-// 1. Ruta para CREAR una nueva tarea
-router.post('/', crearTarea);
+// Obtener todas las tareas: Permite a todos los roles ver la lista (filtrada en el controlador).
+router.get('/', protect, authorizeRoles('admin', 'editor', 'project_manager', 'viewer', 'user'), getTasks);
 
-// 2. Ruta para OBTENER TODAS las tareas
-router.get('/', getTareas);
+// Actualizar una tarea: Permite a admin, editor, project_manager y user actualizar (con lógica de pertenencia en el controlador).
+router.put('/:id', protect, authorizeRoles('admin', 'editor', 'project_manager', 'user'), updateTask);
 
-// 3. Ruta para OBTENER UNA tarea específica por su ID
-router.get('/:id', getTareasId);
+// Eliminar una tarea: Restringido a admin y project_manager a nivel de ruta (con lógica de creador en el controlador).
+router.delete('/:id', protect, authorizeRoles('admin', 'project_manager'), deleteTask);
 
-// 4. Ruta para ACTUALIZAR una tarea existente por su ID
-router.put('/:id', updateTarea);
-
-// 5. Ruta para ELIMINAR una tarea por su ID
-router.delete('/:id', deleteTarea);
-
-export default router; // Exportar 'router' para poder usarlo y "conectarlo" en archivo 'server.ts'.
+export default router;
