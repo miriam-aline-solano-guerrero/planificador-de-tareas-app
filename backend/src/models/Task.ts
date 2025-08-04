@@ -30,11 +30,6 @@ const TaskSchema: Schema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
-  user: { // Campo para la referencia al usuario que creó la tarea
-    type: mongoose.Schema.Types.ObjectId,
-    required: true,
-    ref: 'User', // Establece la relación con el modelo 'User'
-  },
   assignedTo: [{ // Campo para el array de referencias a usuarios asignados
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User', // También hace referencia al modelo 'User'
