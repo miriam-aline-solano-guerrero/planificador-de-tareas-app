@@ -1,14 +1,13 @@
 import mongoose, { Document, Schema, Types } from 'mongoose';
 
-// Define la interfaz para el documento de tarea
-export interface ITask extends Document {
+interface ITask extends Document {
   title: string;
   description: string;
-  activities?: string[]; // Array de strings para sub-tareas
   completed: boolean;
   createdAt: Date;
-  dueDate?: Date;         // Fecha de entrega (opcional)
-  user: Types.ObjectId;   // Referencia al usuario que creó la tarea
+  dueDate?: Date;
+  user: Types.ObjectId; // Referencia al usuario que creó la tarea
+  activities?: string[]; // Asegurarse de que 'activities' sea opcional o tenga un tipo claro
   assignedTo?: Types.ObjectId[]; // Array de referencias a usuarios asignados
 }
 
@@ -23,16 +22,21 @@ const TaskSchema: Schema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  activities: [{
+  activities: [{ // Campo de actividades
     type: String,
   }],
   completed: {
     type: Boolean,
     default: false,
   },
+  user: { 
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User', // Hace referencia al modelo 'User'
+    required: true, // Una tarea debe tener un usuario asociado
+  },
   assignedTo: [{ // Campo para el array de referencias a usuarios asignados
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User', // También hace referencia al modelo 'User'
+    ref: 'User', 
   }],
   createdAt: { // Fecha de creación de la tarea (Mongoose también añade 'updatedAt' si usas timestamps)
     type: Date,
@@ -43,7 +47,7 @@ const TaskSchema: Schema = new mongoose.Schema({
     required: false, // Es opcional
   },
 }, {
-  timestamps: true, // Añade automáticamente 'createdAt' y 'updatedAt'
+  //timestamps: true, // Añade automáticamente 'createdAt' y 'updatedAt'
 });
 
 // Exporta el modelo de tarea

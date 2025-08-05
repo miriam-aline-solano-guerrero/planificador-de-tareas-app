@@ -1,50 +1,36 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
-import { Container, Typography, TextField, Button, Box, Alert, Select, MenuItem, InputLabel, FormControl } from '@mui/material';
-
-interface IRole {
-  _id: string;
-  name: string;
-}
+import { Container, Typography, TextField, Button, Box, Alert } from '@mui/material';
 
 const Register = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [roleId, setRoleId] = useState('');
-  const [roles, setRoles] = useState<IRole[]>([]);
-  const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    const fetchRoles = async () => {
-      try {
-        const response = await axios.get<IRole[]>('/api/roles');
-        setRoles(response.data);
-        if (response.data.length > 0) {
-          setRoleId(response.data[0]._id);
-        }
-      } catch (err: any) {
-        setError('No se pudieron cargar los roles. Por favor, crea roles en tu backend.');
-      }
-    };
-    fetchRoles();
-  }, []);
+  const [success, setSuccess] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setMessage('');
     setError('');
+    setSuccess('');
 
     try {
-      await axios.post('/api/auth/register', { email, password, roleId });
-      setMessage('¡Registro exitoso! Ya puedes iniciar sesión.');
+      // ID de rol 'user' a cada nuevousuario se le agrega por default en este rol
+      const roleId = '6891131eeca30687ecf9dab4';
+
+      if (!roleId) {
+        setError('No se pudo encontrar un rol para registrar al usuario.');
+        return;
+      }
+
+      const response = await axios.post('/api/auth/register', { email, password, roleId });
+      setSuccess(response.data.message || '¡Registro exitoso! Puedes iniciar sesión ahora.');
       setEmail('');
       setPassword('');
     } catch (err: any) {
       if (err.response && err.response.data && err.response.data.message) {
         setError(err.response.data.message);
       } else {
-        setError('Ocurrió un error inesperado al registrar el usuario.');
+        setError('Ocurrió un error al intentar registrarte.');
       }
     }
   };
@@ -53,18 +39,18 @@ const Register = () => {
     <Container maxWidth="sm">
       <Box sx={{ mt: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <Typography variant="h4" component="h1" gutterBottom>
-          Registrar Usuario
+          Registrarse
         </Typography>
 
-        {message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
 
         <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 1, width: '100%' }}>
           <TextField
             margin="normal"
             required
             fullWidth
-            id="email"
+            id="email-reg"
             label="Correo Electrónico"
             name="email"
             autoComplete="email"
@@ -79,36 +65,18 @@ const Register = () => {
             name="password"
             label="Contraseña"
             type="password"
-            id="password"
+            id="password-reg"
             autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          {roles.length > 0 && (
-            <FormControl fullWidth margin="normal" required>
-              <InputLabel id="role-select-label">Rol</InputLabel>
-              <Select
-                labelId="role-select-label"
-                id="role-select"
-                value={roleId}
-                label="Rol"
-                onChange={(e) => setRoleId(e.target.value)}
-              >
-                {roles.map((role) => (
-                  <MenuItem key={role._id} value={role._id}>
-                    {role.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          )}
           <Button
             type="submit"
             fullWidth
             variant="contained"
             sx={{ mt: 3, mb: 2 }}
           >
-            Registrar
+            Registrarse
           </Button>
         </Box>
       </Box>

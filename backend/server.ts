@@ -8,7 +8,15 @@ import userRoutes from './src/routes/userRoutes';
 import taskRoutes from './src/routes/taskRoutes'
 import roleRoutes from './src/routes/roleRoutes';
 
+//clave jwt dotenv
+import dotenv from 'dotenv';
+import mongoose from 'mongoose';
+
+dotenv.config();
+
 connectDB();
+
+mongoose.set('debug', true);
 
 const app = express();
 
@@ -22,7 +30,7 @@ app.use(cors());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/tareas', taskRoutes);
+app.use('/api/tasks', taskRoutes);
 app.use('/api/roles', roleRoutes);
 
 app.get('/', (req, res) => {

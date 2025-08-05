@@ -1,87 +1,86 @@
 import { Request, Response } from 'express';
-import User, { IUser } from '../models/User';
-import Role from '../models/Role';
-import mongoose from 'mongoose';
+import User from '../models/User';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 
-
-/**
- * @desc    Registrar un nuevo usuario y asignarle un rol específico
- * @route   POST /api/auth/register
- * @access  Private (idealmente, solo accesible por administradores)
- */
-export const registerUser = async (req: Request, res: Response): Promise<void> => {
-  // Ahora esperamos un roleId en el cuerpo de la petición
-  const { email, password, roleId } = req.body;
-
-  if (!email || !password || !roleId) {
-    res.status(400).json({ message: 'Por favor, introduce un email, una contraseña y un ID de rol.' });
-    return;
-  }
-
-  if (!mongoose.Types.ObjectId.isValid(roleId)) {
-    res.status(400).json({ message: 'El ID de rol proporcionado no es válido.' });
-    return;
-  }
-
-  try {
-    const userExists = await User.findOne({ email });
-
-    if (userExists) {
-      res.status(400).json({ message: 'El usuario ya existe.' });
-      return;
-    }
-
-    // Verifica que el ID de rol sea válido y que el rol exista
-    const roleExists = await Role.findById(roleId);
-
-    if (!roleExists) {
-      res.status(404).json({ message: 'El rol con el ID proporcionado no fue encontrado.' });
-      return;
-    }
-
-    const user = await User.create({
-      email,
-      password,
-      role: roleId, // <-- Asignamos el ID de rol que vino en la petición
+//funcion para generar el token
+const generateToken = (id: string): string => {
+    return jwt.sign({ id }, process.env.JWT_SECRET as string, {
+        expiresIn: '1d',
     });
+};
 
-    if (user) {
-      res.status(201).json({
-        _id: user._id,
-        email: user.email,
-        role: user.role,
-      });
-    } else {
-      res.status(400).json({ message: 'Datos de usuario no válidos.' });
+//registrar usuario
+export const registerUser = async (req: Request, res: Response): Promise<void> => {
+  //parametros que se solicitan si o si
+    const { email, password, roleId } = req.body;
+
+    try {
+      //si el usuario existe, lo busca por el email...
+        const userExists = await User.findOne({ email });
+
+        //se valida y se regresa codigo 400 de que el usuario ya existe
+        if (userExists) {
+            res.status(400).json({ message: 'El usuario ya existe.' });
+            return;
+        }
+
+        //si no existe se crea, pero debe tener los 3 parametros
+        const user = await User.create({
+            email,
+            password,
+            role: roleId,
+        });
+
+        // Verificación agregada para asegurar que 'user' no sea null
+        if (!user) {
+            res.status(500).json({ message: 'Error interno: no se pudo crear el usuario.' });
+            return;
+        }
+        
+        //se genera el token para el usuario registrado
+        const token = generateToken(user.id.toString());
+        
+        //se devuelve un status del usuario con sus datos
+        res.status(201).json({
+            _id: user._id,
+            email: user.email,
+            role: (user.role as any).name,
+            token,
+        });
+    } catch (error: any) {
+        console.error('Error al registrar usuario:', error);
+        res.status(500).json({ message: 'Error al registrar el usuario.' });
     }
-  } catch (error: any) {
-    console.error('Error al registrar usuario:', error);
-    res.status(500).json({ message: 'Error del servidor durante el registro.' });
-  }
 };
 
 export const loginUser = async (req: Request, res: Response): Promise<void> => {
-  const { email, password } = req.body;
+    const { email, password } = req.body;
 
-  if (!email || !password) {
-    res.status(400).json({ message: 'Por favor, introduce el email y la contraseña.' });
-    return;
-  }
+    try {
+        const user = await User.findOne({ email }).populate('role');
 
-  try {
-    const user = await User.findOne({ email });
+        if (!user) {
+            res.status(401).json({ message: 'Credenciales de acceso no válidas.' });
+            return;
+        }
 
-    if (user && (await user.matchPassword(password))) {
-      res.status(200).json({
-        _id: user._id,
-        email: user.email,
-        role: user.role,
-      });
-    } else {
-      res.status(401).json({ message: 'Credenciales inválidas.' });
+        const isMatch = await bcrypt.compare(password, user.password as string);
+        if (!isMatch) {
+            res.status(401).json({ message: 'Credenciales de acceso no válidas.' });
+            return;
+        }
+
+        const token = generateToken(user.id.toString());
+
+        res.status(200).json({
+            _id: user._id,
+            email: user.email,
+            role: (user.role as any).name,
+            token,
+        });
+    } catch (error: any) {
+        console.error('Error en el login:', error);
+        res.status(500).json({ message: 'Error del servidor durante el inicio de sesión.' });
     }
-  } catch (error: any) {
-    console.error('Error al iniciar sesión:', error); 
-    res.status(500).json({ message: 'Error del servidor al iniciar sesión.' });
-  }
 };

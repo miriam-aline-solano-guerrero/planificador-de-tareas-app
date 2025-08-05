@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Typography, Button, Box } from '@mui/material';
-import TaskDashboard from './TaskDashboard'; // <-- Importa el nuevo componente
+import TaskDashboard from './TaskDashboard'; 
 
 const Dashboard = () => {
   const { user, logout } = useAuth();

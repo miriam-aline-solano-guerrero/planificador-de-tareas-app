@@ -15,14 +15,14 @@ const Login = () => {
 
     try {
       const response = await axios.post('/api/auth/login', { email, password });
-
+      
       const { token, ...user } = response.data;
 
-      login(token, user);
-
-      setEmail('');
-      setPassword('');
-
+      if (token && user) {
+        login(token, user as any);
+      } else {
+        setError('La respuesta del servidor no es válida.');
+      }
     } catch (err: any) {
       if (err.response && err.response.data && err.response.data.message) {
         setError(err.response.data.message);

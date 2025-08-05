@@ -1,19 +1,13 @@
-import express from 'express';
-import { getTasks, createTask, updateTask, deleteTask } from '../controllers/taskController';
+import { Router } from 'express';
+import { getTasks, getTask, createTask, updateTask, deleteTask } from '../controllers/taskController';
 import { protect } from '../middleware/authMiddleware';
 
-const router = express.Router();
+const router = Router();
 
-// Crear una nueva tarea
-router.post('/', protect, createTask);
+// La ruta POST para crear una tarea
+router.route('/').get(protect, getTasks).post(protect, createTask);
 
-// Obtener todas las tareas
-router.get('/', protect, getTasks);
-
-// Actualizar una tarea
-router.put('/:id', protect, updateTask);
-
-// Eliminar una tarea
-router.delete('/:id', protect, deleteTask);
+// Las demás rutas
+router.route('/:id').get(protect, getTask).put(protect, updateTask).delete(protect, deleteTask);
 
 export default router;
