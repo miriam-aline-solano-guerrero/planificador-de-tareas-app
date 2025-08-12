@@ -1,17 +1,22 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 import User, {IUser} from '../models/User'
+import Role from "../models/Role";
 
-// SIN AUTENTICACIÓN
+interface AuthenticatedRequest extends Request {
+  user?: IUser;
+}
 
 /**
  * @desc    Obtener todos los usuarios
  * @route   GET /api/users
  * @access  Public
  */
-export const getUsers = async (req: Request, res: Response): Promise<void> => {
+export const getUsers = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const users = await User.find({}).select('-password');
+    const users = await User.find({})
+    .select('_id name email role')
+    .populate('role', 'name');
     res.status(200).json(users);
   } catch (error: any) {
     console.error('Error al obtener usuarios:', error);
@@ -35,7 +40,6 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    // Aquí iria lógica de validación, quitado para fines de prueba
     if (email !== undefined) userToUpdate.email = email;
     if (role !== undefined) userToUpdate.role = role;
     
@@ -73,5 +77,5 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
         res.status(200).json({ message: 'Usuario eliminado exitosamente.' });
     } catch (error: any) {
         // ...
-    }
+  }
 };

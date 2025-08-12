@@ -1,55 +1,67 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
+import axios from 'axios';
 
 interface User {
   _id: string;
   email: string;
-  role: string;
+  name: string;
+  role: { name: string; _id: string };
+  token: string;
 }
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (token: string, user: User) => void;
+  login: (userData: User) => void;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-interface AuthProviderProps {
-  children: ReactNode;
-}
-
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
-    const storedToken = localStorage.getItem('userToken');
+    const storedToken = localStorage.getItem('token');
 
     if (storedUser && storedToken) {
-      setUser(JSON.parse(storedUser));
-      setToken(storedToken);
+      try {
+        const parsedUser: User = JSON.parse(storedUser);
+        setUser(parsedUser);
+        setToken(storedToken);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+      } catch (e) {
+        console.error('Failed to parse user data from localStorage', e);
+        // Limpiar localStorage si los datos son inválidos para evitar el bucle de error
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+      }
     }
   }, []);
 
-  const login = (token: string, userData: User) => {
-    localStorage.setItem('userToken', token);
-    localStorage.setItem('user', JSON.stringify(userData));
+  const login = (userData: User) => {
     setUser(userData);
-    setToken(token);
+    setToken(userData.token);
+    localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem('token', userData.token);
+    axios.defaults.headers.common['Authorization'] = `Bearer ${userData.token}`;
   };
 
   const logout = () => {
-    localStorage.removeItem('userToken');
-    localStorage.removeItem('user');
     setUser(null);
     setToken(null);
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    delete axios.defaults.headers.common['Authorization'];
   };
 
-  const value = { user, token, login, logout };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, token, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = () => {

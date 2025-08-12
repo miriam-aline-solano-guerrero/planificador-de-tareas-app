@@ -1,35 +1,51 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import {
   Container, Typography, List, ListItem, ListItemText,
-  CircularProgress, Alert, Box, TextField, Button,
-  Paper, Checkbox, IconButton,
+  CircularProgress, Alert, Box, Paper, Checkbox, IconButton, Collapse
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 
-interface Task {
+// Interfaz para el objeto de usuario que viene del backend
+interface PopulatedUser {
+  _id: string;
+  email: string;
+  name: string;
+  role: { name: string; _id: string };
+}
+
+// Interfaz para el objeto de actividad
+interface Activity {
+  _id: string;
+  name: string;
+  completed: boolean;
+}
+
+// Interfaz UNIFICADA para la tarea
+export interface Task {
   _id: string;
   title: string;
   description?: string;
-  activities?: string[];
+  activities: Activity[];
   completed: boolean;
   dueDate?: string;
-  assignedTo?: string[];
+  user: PopulatedUser;
+  assignedTo?: PopulatedUser[];
 }
 
 const TaskDashboard = () => {
   const { user, token } = useAuth();
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [allUsers, setAllUsers] = useState<PopulatedUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [newTaskDescription, setNewTaskDescription] = useState('');
-  const [newActivities, setNewActivities] = useState('');
-  const [newDueDate, setNewDueDate] = useState('');
-  const [newAssignedTo, setNewAssignedTo] = useState('');
-  const [editingTask, setEditingTask] = useState<Task | null>(null); // <-- Estado para la tarea que se está editando
+  const [expandedTask, setExpandedTask] = useState<string | null>(null);
 
   const config = {
     headers: {
@@ -42,7 +58,6 @@ const TaskDashboard = () => {
       setLoading(false);
       return;
     }
-    
     try {
       setLoading(true);
       const response = await axios.get('/api/tasks', config);
@@ -59,79 +74,36 @@ const TaskDashboard = () => {
     }
   };
 
+  const fetchUsers = async () => {
+    if (!token) return;
+    try {
+      const response = await axios.get('/api/users', config);
+      setAllUsers(response.data);
+    } catch (err) {
+      console.error('Error al obtener la lista de usuarios:', err);
+    }
+  };
+
   useEffect(() => {
     if (token) {
       fetchTasks();
+      fetchUsers();
     } else {
       setLoading(false);
       setError('Debes iniciar sesión para ver las tareas.');
     }
   }, [token]);
 
-  // <-- Función para manejar la edición
-  const handleEditClick = (task: Task) => {
-    setEditingTask(task);
-    setNewTaskTitle(task.title);
-    setNewTaskDescription(task.description || '');
-    setNewActivities(task.activities?.join(', ') || '');
-    setNewDueDate(task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '');
-    setNewAssignedTo(task.assignedTo?.join(', ') || '');
-  };
-
-  // <-- Función para limpiar el formulario después de guardar o cancelar la edición
-  const resetForm = () => {
-    setNewTaskTitle('');
-    setNewTaskDescription('');
-    setNewActivities('');
-    setNewDueDate('');
-    setNewAssignedTo('');
-    setEditingTask(null);
-  };
-
-  // <-- Función para crear/actualizar una tarea
-  const handleCreateOrUpdateTask = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTaskTitle || !token) {
-      setError('Debes tener un título y estar autenticado para crear una tarea.');
-      return;
-    }
-
-    const activitiesArray = newActivities.split(',').map(activity => activity.trim()).filter(Boolean);
-    const assignedToArray = newAssignedTo.split(',').map(id => id.trim()).filter(Boolean);
-
-    const taskData = {
-      title: newTaskTitle,
-      description: newTaskDescription,
-      activities: activitiesArray,
-      dueDate: newDueDate || undefined,
-      assignedTo: assignedToArray,
-    };
-    
-    try {
-      if (editingTask) {
-        // Lógica para actualizar una tarea existente
-        await axios.put(`/api/tasks/${editingTask._id}`, taskData, config);
-      } else {
-        // Lógica para crear una nueva tarea
-        await axios.post('/api/tasks', taskData, config);
-      }
-      
-      resetForm();
-      fetchTasks();
-    } catch (err: any) {
-      console.error('Error al guardar la tarea:', err.response?.data || err.message);
-      setError(err.response?.data?.message || 'No se pudo guardar la tarea.');
-    }
+  const handleEditClick = (taskId: string) => {
+    navigate(`/tasks/edit/${taskId}`);
   };
 
   const handleToggleCompleted = async (id: string, completed: boolean) => {
     try {
       await axios.put(`/api/tasks/${id}`, { completed: !completed }, config);
-      
-      setTasks(tasks.map(task => 
+      setTasks(tasks.map(task =>
         task._id === id ? { ...task, completed: !completed } : task
       ));
-
     } catch (err: any) {
       console.error('Error al actualizar la tarea:', err.response?.data || err.message);
       setError('No se pudo actualizar el estado de la tarea.');
@@ -148,119 +120,112 @@ const TaskDashboard = () => {
     }
   };
 
+  const handleToggleActivityCompleted = async (taskId: string, activityId: string, completed: boolean) => {
+    try {
+        const response = await axios.put(`/api/tasks/${taskId}/activities/${activityId}`, { completed: !completed }, config);
+        setTasks(tasks.map(task =>
+            task._id === taskId ? response.data : task
+        ));
+    } catch (err: any) {
+        console.error('Error al actualizar el estado de la actividad:', err.response?.data || err.message);
+        setError('No se pudo actualizar el estado de la actividad.');
+    }
+  };
+
+  const getUserName = (userId: string): string => {
+    const foundUser = allUsers.find(u => u._id === userId);
+    return foundUser ? `${foundUser.name} (${foundUser.role.name})` : 'Usuario Desconocido';
+  };
+
+  const isTaskExpanded = (taskId: string) => expandedTask === taskId;
+  const toggleExpanded = (taskId: string) => {
+    setExpandedTask(isTaskExpanded(taskId) ? null : taskId);
+  };
+
   return (
     <Container maxWidth="md" sx={{ mt: 4 }}>
       <Typography variant="h4" component="h2" gutterBottom>
-        Mis Tareas
+        Dashboard de Tareas
       </Typography>
-
-      {user && (
-        <Paper elevation={2} sx={{ p: 2, mb: 4 }}>
-          <Typography variant="h6" gutterBottom>
-            {editingTask ? 'Editar Tarea' : 'Crear Nueva Tarea'}
-          </Typography>
-          <Box component="form" onSubmit={handleCreateOrUpdateTask} noValidate sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField
-              label="Título de la tarea"
-              variant="outlined"
-              required
-              fullWidth
-              value={newTaskTitle}
-              onChange={(e) => setNewTaskTitle(e.target.value)}
-            />
-            <TextField
-              label="Descripción (opcional)"
-              variant="outlined"
-              multiline
-              rows={2}
-              fullWidth
-              value={newTaskDescription}
-              onChange={(e) => setNewTaskDescription(e.target.value)}
-            />
-            <TextField
-              label="Actividades (separadas por comas)"
-              variant="outlined"
-              fullWidth
-              value={newActivities}
-              onChange={(e) => setNewActivities(e.target.value)}
-            />
-            <TextField
-              label="Fecha de entrega"
-              type="date"
-              variant="outlined"
-              fullWidth
-              value={newDueDate}
-              onChange={(e) => setNewDueDate(e.target.value)}
-              InputLabelProps={{
-                shrink: true,
-              }}
-            />
-             <TextField
-              label="IDs de Colaboradores (separados por comas)"
-              variant="outlined"
-              fullWidth
-              value={newAssignedTo}
-              onChange={(e) => setNewAssignedTo(e.target.value)}
-              helperText="Ingresa los IDs de usuario de los colaboradores, separados por comas."
-            />
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button type="submit" variant="contained" color="primary">
-                {editingTask ? 'Guardar Cambios' : 'Crear Tarea'}
-              </Button>
-              {editingTask && (
-                <Button variant="outlined" color="secondary" onClick={resetForm}>
-                  Cancelar
-                </Button>
-              )}
-            </Box>
-          </Box>
-        </Paper>
-      )}
 
       {loading && <CircularProgress sx={{ display: 'block', margin: 'auto' }} />}
       {error && <Alert severity="error">{error}</Alert>}
 
       {!loading && !error && tasks.length > 0 && (
-        <List>
-          {tasks.map(task => (
-            <Paper elevation={1} sx={{ mb: 1, textDecoration: task.completed ? 'line-through' : 'none' }} key={task._id}>
-              <ListItem>
-                <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                  <Checkbox
-                    checked={task.completed}
-                    onChange={() => handleToggleCompleted(task._id, task.completed)}
-                    color="primary"
-                  />
-                  <ListItemText
-                    primary={task.title}
-                    secondary={
-                      <>
-                        {task.description && <div>{task.description}</div>}
-                        {task.activities && task.activities.length > 0 && (
-                          <div>Actividades: {task.activities.join(', ')}</div>
-                        )}
-                        {task.dueDate && <div>Fecha de entrega: {new Date(task.dueDate).toLocaleDateString()}</div>}
-                        {task.assignedTo && task.assignedTo.length > 0 && (
-                          <div>Asignado a: {task.assignedTo.join(', ')}</div>
-                        )}
-                        <div>Estado: {task.completed ? 'Completada' : 'Pendiente'}</div>
-                      </>
-                    }
-                    sx={{ flexGrow: 1 }}
-                  />
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <IconButton edge="end" aria-label="edit" onClick={() => handleEditClick(task)}>
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton edge="end" aria-label="delete" onClick={() => handleDeleteTask(task._id)}>
-                      <DeleteIcon />
-                    </IconButton>
-                  </Box>
-                </Box>
-              </ListItem>
+        <>
+            <Paper elevation={2} sx={{ p: 2 }}>
+                <Typography variant="h6" gutterBottom>
+                    Lista de Tareas
+                </Typography>
+                <List>
+                    {tasks.map(task => (
+                    <Paper elevation={1} sx={{ mb: 1, textDecoration: task.completed ? 'line-through' : 'none' }} key={task._id}>
+                        <ListItem>
+                        <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                            <Checkbox
+                            checked={task.completed}
+                            onChange={() => handleToggleCompleted(task._id, task.completed)}
+                            color="primary"
+                            />
+                            <ListItemText
+                            primary={task.title}
+                            secondary={
+                                <>
+                                {task.description && <div>{task.description}</div>}
+                                {task.dueDate && <div>Fecha de entrega: {new Date(task.dueDate).toLocaleDateString()}</div>}
+                                {task.user && <div>Creada por: {task.user.name}</div>}
+                                {task.assignedTo && task.assignedTo.length > 0 && (
+                                    <div>Asignado a: {task.assignedTo.map(u => u.name).join(', ')}</div>
+                                )}
+                                <div>Estado: {task.completed ? 'Completada' : 'Pendiente'}</div>
+                                </>
+                            }
+                            sx={{ flexGrow: 1 }}
+                            />
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                                <IconButton onClick={() => toggleExpanded(task._id)}>
+                                    {isTaskExpanded(task._id) ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                                </IconButton>
+                                <IconButton edge="end" aria-label="edit" onClick={() => handleEditClick(task._id)}>
+                                    <EditIcon />
+                                </IconButton>
+                                <IconButton edge="end" aria-label="delete" onClick={() => handleDeleteTask(task._id)}>
+                                    <DeleteIcon />
+                                </IconButton>
+                            </Box>
+                        </Box>
+                        </ListItem>
+                        
+                        <Collapse in={isTaskExpanded(task._id)} timeout="auto" unmountOnExit>
+                            <Box sx={{ pl: 4, pt: 1, pb: 1 }}>
+                                <Typography variant="subtitle2" gutterBottom>Actividades:</Typography>
+                                <List dense>
+                                    {task.activities.length > 0 ? (
+                                        task.activities.map(activity => (
+                                            <ListItem key={activity._id} disablePadding>
+                                                <Checkbox
+                                                    checked={activity.completed}
+                                                    onChange={() => handleToggleActivityCompleted(task._id, activity._id, activity.completed)}
+                                                />
+                                                <ListItemText
+                                                    primary={activity.name}
+                                                    sx={{ textDecoration: activity.completed ? 'line-through' : 'none' }}
+                                                />
+                                            </ListItem>
+                                        ))
+                                    ) : (
+                                        <Typography variant="body2" color="text.secondary">
+                                            No hay actividades para esta tarea.
+                                        </Typography>
+                                    )}
+                                </List>
+                            </Box>
+                        </Collapse>
+                    </Paper>
+                    ))}
+                </List>
             </Paper>
-          ))}
-        </List>
+        </>
       )}
       {!loading && !error && tasks.length === 0 && (
         <Alert severity="info">No tienes tareas pendientes.</Alert>

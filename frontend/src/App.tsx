@@ -1,43 +1,34 @@
-import React, { useState } from 'react';
-import Login from './components/Login';
-import Register from './components/Register';
-import Dashboard from './components/Dashboard';
-import { useAuth } from './context/AuthContext';
-import { Container, Box, Button, Typography, Paper } from '@mui/material';
-import './App.css';
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import Navbar from './components/Navbar';
+import Auth from './components/Auth';
+import TaskDashboard from './components/TaskDashboard';
+import TaskForm from './components/TaskForm';
+import TaskProgress from './components/TaskProgress';
+import Home from './components/Home';
+import { Container, Box } from '@mui/material';
 
-function App() {
-  const { user } = useAuth();
-  const [showRegister, setShowRegister] = useState(false);
-
+const App = () => {
   return (
-    <Container maxWidth="sm">
-      <Box sx={{ mt: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <Typography variant="h3" component="h1" gutterBottom>
-          Planificador de Tareas
-        </Typography>
-
-        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
-          {user ? (
-            <Dashboard />
-          ) : (
-            <>
-              {showRegister ? <Register /> : <Login />}
-
-              <Box sx={{ mt: 2, textAlign: 'center' }}>
-                <Typography variant="body2" color="text.secondary">
-                  {showRegister ? "¿Ya tienes una cuenta?" : "¿No tienes una cuenta?"}
-                </Typography>
-                <Button onClick={() => setShowRegister(!showRegister)}>
-                  {showRegister ? "Iniciar Sesión" : "Registrarme"}
-                </Button>
-              </Box>
-            </>
-          )}
-        </Paper>
-      </Box>
-    </Container>
+    <Router>
+      <AuthProvider>
+        <Navbar />
+        <Container maxWidth="lg" sx={{ mt: 4 }}>
+          <Box mt={2}>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/tasks" element={<TaskDashboard />} />
+              <Route path="/tasks/create" element={<TaskForm />} /> 
+              <Route path="/tasks/edit/:taskId" element={<TaskForm />} /> 
+              <Route path="/progress" element={<TaskProgress />} />
+              <Route path="/auth" element={<Auth />} />
+            </Routes>
+          </Box>
+        </Container>
+      </AuthProvider>
+    </Router>
   );
-}
+};
 
 export default App;
