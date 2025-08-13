@@ -16,11 +16,12 @@ import MenuIcon from '@mui/icons-material/Menu';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import AddTaskIcon from '@mui/icons-material/AddTask';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'; 
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const Navbar = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, loading } = useAuth();
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -37,14 +38,22 @@ const Navbar = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/auth');
+    navigate('/login'); // <-- Corregido para redirigir a la ruta correcta
   };
 
-  const menuItems = [
+  let menuItems = [
     { text: 'Dashboard de Tareas', path: '/tasks', icon: <DashboardIcon /> },
     { text: 'Crear Tarea', path: '/tasks/create', icon: <AddTaskIcon /> },
     { text: 'Avances', path: '/progress', icon: <TrendingUpIcon /> },
   ];
+
+  if (!loading && user && user.role && user.role.name === 'admin') {
+    menuItems.push({
+      text: 'Panel de Administración',
+      path: '/admin',
+      icon: <AdminPanelSettingsIcon />,
+    });
+  }
 
   const drawerList = () => (
     <Box
@@ -73,28 +82,30 @@ const Navbar = () => {
           </Link>
         </Typography>
 
-        {user ? (
-          <>
-            <IconButton
-              size="large"
-              edge="start"
-              color="inherit"
-              aria-label="menu"
-              sx={{ mr: 2 }}
-              onClick={toggleDrawer(true)}
-            >
-              <MenuIcon />
-            </IconButton>
-            <Drawer anchor="left" open={drawerOpen} onClose={toggleDrawer(false)}>
-              {drawerList()}
-            </Drawer>
-            <Button color="inherit" onClick={handleLogout}>Cerrar Sesión</Button>
-          </>
-        ) : (
-          <Button color="inherit" component={Link} to="/auth">
-            Iniciar Sesión
-          </Button>
-        )}
+        {!loading ? (
+          user ? (
+            <>
+              <IconButton
+                size="large"
+                edge="start"
+                color="inherit"
+                aria-label="menu"
+                sx={{ mr: 2 }}
+                onClick={toggleDrawer(true)}
+              >
+                <MenuIcon />
+              </IconButton>
+              <Drawer anchor="left" open={drawerOpen} onClose={toggleDrawer(false)}>
+                {drawerList()}
+              </Drawer>
+              <Button color="inherit" onClick={handleLogout}>Cerrar Sesión</Button>
+            </>
+          ) : (
+            <Button color="inherit" component={Link} to="/login">
+              Iniciar Sesión
+            </Button>
+          )
+        ) : null}
       </Toolbar>
     </AppBar>
   );

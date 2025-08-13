@@ -22,13 +22,13 @@ const App = () => {
               <Route path="/tasks/create" element={<TaskForm />} /> 
               <Route path="/tasks/edit/:taskId" element={<TaskForm />} /> 
               <Route path="/progress" element={<TaskProgress />} />
-              <Route path="/auth" element={<Auth />} />
+              <Route path="/login" element={<Auth />} />
             </Routes>
           </Box>
         </Container>
       </AuthProvider>
     </Router>
   );
-};
+}
 
 export default App;

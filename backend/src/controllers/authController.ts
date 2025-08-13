@@ -14,6 +14,7 @@ const generateToken = (id: string): string => {
 export const registerUser = async (req: Request, res: Response): Promise<void> => {
   //parametros que se solicitan si o si
     const { email, password, roleId } = req.body;
+    console.log('Recibido del frontend:', { email, password });
 
     try {
       //si el usuario existe, lo busca por el email...
@@ -64,6 +65,9 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
             res.status(401).json({ message: 'Credenciales de acceso no válidas.' });
             return;
         }
+
+        console.log('Contraseña del formulario:', password);
+        console.log('Contraseña de la base de datos (hash):', user.password);
 
         const isMatch = await bcrypt.compare(password, user.password as string);
         if (!isMatch) {
