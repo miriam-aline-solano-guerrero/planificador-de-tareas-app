@@ -10,30 +10,27 @@ const generateToken = (id: string): string => {
     });
 };
 
-//registrar usuario
 export const registerUser = async (req: Request, res: Response): Promise<void> => {
   //parametros que se solicitan si o si
-    const { email, password, roleId } = req.body;
+    const { name, email, password, roleId } = req.body;
     console.log('Recibido del frontend:', { email, password });
 
     try {
-      //si el usuario existe, lo busca por el email...
         const userExists = await User.findOne({ email });
 
-        //se valida y se regresa codigo 400 de que el usuario ya existe
         if (userExists) {
             res.status(400).json({ message: 'El usuario ya existe.' });
             return;
         }
 
-        //si no existe se crea, pero debe tener los 3 parametros
+        //si no existe se crea, pero debe tener los 4 parametros
         const user = await User.create({
+            name,
             email,
             password,
             role: roleId,
         });
 
-        // Verificación agregada para asegurar que 'user' no sea null
         if (!user) {
             res.status(500).json({ message: 'Error interno: no se pudo crear el usuario.' });
             return;
@@ -44,6 +41,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
         
         //se devuelve un status del usuario con sus datos
         res.status(201).json({
+            name: user.name,
             _id: user._id,
             email: user.email,
             role: (user.role as any).name,

@@ -1,3 +1,5 @@
+// src/components/Auth.tsx
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -29,14 +31,12 @@ const Auth = () => {
       if (isLogin) {
         console.log('Enviando al backend:', { email, password });
         const response = await axios.post('/api/auth/login', { email, password });
-        // COMBINAMOS los datos del usuario y el token en un solo objeto
-        const userWithToken = { ...response.data.user, token: response.data.token };
-        login(userWithToken);
+        // --- CAMBIO CLAVE AQUÍ: Se pasa la respuesta completa ---
+        login(response.data);
       } else {
         const response = await axios.post('/api/auth/register', { name, email, password });
-        // COMBINAMOS los datos del usuario y el token en un solo objeto
-        const userWithToken = { ...response.data.user, token: response.data.token };
-        login(userWithToken);
+        // --- CAMBIO CLAVE AQUÍ: Se pasa la respuesta completa ---
+        login(response.data);
       }
       navigate('/tasks');
     } catch (err: any) {

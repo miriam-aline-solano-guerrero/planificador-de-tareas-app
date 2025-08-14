@@ -1,36 +1,53 @@
+import jwt, { JwtPayload } from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import User, { IUser } from '../models/User';
+import User from '../models/User';
+import { Schema, Document } from 'mongoose';
 
-interface AuthenticatedRequest extends Request {
-  user?: IUser;
+// Interfaz que define la forma del documento que Mongoose devolverá
+interface UserDocument extends Document {
+    _id: Schema.Types.ObjectId;
+    role: Schema.Types.ObjectId;
 }
 
-export const protect = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  let token;
+// Amplía la interfaz de Express Request para incluir el objeto 'user'
+interface AuthenticatedRequest extends Request {
+    user?: {
+        _id: Schema.Types.ObjectId;
+        role: Schema.Types.ObjectId;
+    };
+}
 
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    try {
-      token = req.headers.authorization.split(' ')[1];
-      const decoded: any = jwt.verify(token, process.env.JWT_SECRET as string);
+const protect = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    let token;
 
-      req.user = await User.findById(decoded.id).select('-password');
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+        try {
+            token = req.headers.authorization.split(' ')[1];
+            const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as JwtPayload;
 
-      if (!req.user) {
-        res.status(401).json({ message: 'Token no válido, usuario no encontrado.' });
-        return;
-      }
+            // --- CORRECCIÓN CLAVE ---
+            // Usamos el casting 'as UserDocument' para asegurar que el resultado de la consulta
+            // tenga el tipo que necesitamos.
+            const userFromDb = await User.findById(decoded.id).select('_id role') as UserDocument;
 
-      next();
-    } catch (error) {
-      console.error(error);
-      res.status(401).json({ message: 'No autorizado, el token ha fallado.' });
-      return;
+            if (!userFromDb) {
+                res.status(401);
+                throw new Error('Usuario no encontrado');
+            }
+
+            req.user = {
+                _id: userFromDb._id,
+                role: userFromDb.role
+            };
+
+            next();
+        } catch (error) {
+            console.error(error);
+            res.status(401).json({ message: 'No autorizado, token fallido' });
+        }
+    } else {
+        res.status(401).json({ message: 'No autorizado, no hay token' });
     }
-  }
-
-  if (!token) {
-    res.status(401).json({ message: 'No autorizado, no hay token.' });
-    return;
-  }
 };
+
+export { protect };

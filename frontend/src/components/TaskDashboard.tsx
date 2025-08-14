@@ -11,7 +11,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import TaskEditFormModal from './TaskEdit'; // Importamos el nuevo modal
+import TaskEditFormModal from './TaskEdit';
 
 // --- Interfaces para la lista de tareas ---
 interface User {
@@ -38,7 +38,7 @@ export interface Task {
 }
 
 const TaskDashboard = () => {
-    const { token } = useAuth();
+    const { token, user, isAdmin } = useAuth(); // <--- IMPORTANTE: Obtener `user` e `isAdmin` del contexto
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -62,7 +62,9 @@ const TaskDashboard = () => {
         }
         try {
             setLoading(true);
-            const response = await axios.get('/api/tasks', config);
+            // --- CAMBIO AQUÍ: Endpoint condicional basado en el rol de admin ---
+            const endpoint = isAdmin ? '/api/tasks/all' : '/api/tasks';
+            const response = await axios.get<Task[]>(endpoint, config);
             setTasks(response.data);
             setError(null);
         } catch (err: any) {
@@ -83,7 +85,7 @@ const TaskDashboard = () => {
             setLoading(false);
             setError('Debes iniciar sesión para ver las tareas.');
         }
-    }, [token]);
+    }, [token, isAdmin]); // <--- IMPORTANTE: Volver a cargar las tareas si cambia el rol
 
     const handleOpenEditModal = (task: Task) => {
         setSelectedTask(task);
@@ -93,7 +95,7 @@ const TaskDashboard = () => {
     const handleCloseEditModal = () => {
         setIsEditModalOpen(false);
         setSelectedTask(null);
-        fetchTasks(); // Recargar las tareas para ver los cambios
+        fetchTasks();
     };
 
     const handleToggleCompleted = async (id: string, completed: boolean) => {
@@ -134,11 +136,19 @@ const TaskDashboard = () => {
     const toggleExpanded = (taskId: string) => {
         setExpandedTask(isTaskExpanded(taskId) ? null : taskId);
     };
+    
+    // --- NUEVA LÓGICA: Lógica de permisos para los botones ---
+    const canModifyTask = (task: Task) => {
+        // Un admin puede editar cualquier tarea
+        if (isAdmin) return true;
+        // Un usuario normal solo puede editar las suyas
+        return user?._id === task.user._id;
+    };
 
     return (
         <Container maxWidth="md" sx={{ mt: 4 }}>
             <Typography variant="h4" component="h2" gutterBottom>
-                Dashboard de Tareas
+                {isAdmin ? "Todas las Tareas del Sistema" : "Mis Tareas"}
             </Typography>
             <Button variant="contained" color="primary" onClick={() => navigate('/tasks/create')}>
                 Crear Nueva Tarea
@@ -168,9 +178,10 @@ const TaskDashboard = () => {
                                                 <>
                                                     {task.description && <div>{task.description}</div>}
                                                     {task.dueDate && <div>Fecha de entrega: {new Date(task.dueDate).toLocaleDateString()}</div>}
-                                                    {task.user && <div>Creada por: {task.user.name}</div>}
+                                                    {/* --- MUESTRA AL CREADOR SOLO SI ES ADMIN --- */}
+                                                    {isAdmin && task.user && <div>Creada por: {task.user.email}</div>}
                                                     {task.assignedTo && task.assignedTo.length > 0 && (
-                                                        <div>Asignado a: {task.assignedTo.map(u => u.name).join(', ')}</div>
+                                                        <div>Asignado a: {task.assignedTo.map(u => u.email).join(', ')}</div>
                                                     )}
                                                 </>
                                             }
@@ -180,13 +191,17 @@ const TaskDashboard = () => {
                                             <IconButton onClick={() => toggleExpanded(task._id)}>
                                                 {isTaskExpanded(task._id) ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                                             </IconButton>
-                                            {/* Abre el modal al hacer clic en el botón de edición */}
-                                            <IconButton edge="end" aria-label="edit" onClick={() => handleOpenEditModal(task)}>
-                                                <EditIcon />
-                                            </IconButton>
-                                            <IconButton edge="end" aria-label="delete" onClick={() => handleDeleteTask(task._id)}>
-                                                <DeleteIcon />
-                                            </IconButton>
+                                            {/* --- MUESTRA LOS BOTONES DE EDITAR Y ELIMINAR SOLO SI EL USUARIO PUEDE MODIFICAR LA TAREA --- */}
+                                            {canModifyTask(task) && (
+                                                <>
+                                                    <IconButton edge="end" aria-label="edit" onClick={() => handleOpenEditModal(task)}>
+                                                        <EditIcon />
+                                                    </IconButton>
+                                                    <IconButton edge="end" aria-label="delete" onClick={() => handleDeleteTask(task._id)}>
+                                                        <DeleteIcon />
+                                                    </IconButton>
+                                                </>
+                                            )}
                                         </Box>
                                     </Box>
                                 </ListItem>
