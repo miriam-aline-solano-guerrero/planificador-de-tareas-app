@@ -1,53 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import {
-    Container, Typography, TextField, Button, Box, Paper, Alert,
-    FormControl, InputLabel, Select, MenuItem, Checkbox, Chip, OutlinedInput, CircularProgress
+    Modal, Box, Typography, TextField, Button, Alert, FormControl, InputLabel, Select, MenuItem, Checkbox, Chip, OutlinedInput
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { Task } from './TaskDashboard'; // Importamos la interfaz Task del dashboard
 
-// --- Interfaces para el formulario ---
-interface PopulatedUser {
+interface User {
     _id: string;
     email: string;
     name: string;
     role: { name: string; _id: string };
 }
 
-interface Activity {
-    _id: string;
-    name: string;
-    completed: boolean;
+interface TaskEditFormModalProps {
+    open: boolean;
+    handleClose: () => void;
+    task: Task;
 }
 
-export interface Task {
-    _id: string;
-    title: string;
-    description?: string;
-    activities: Activity[];
-    completed: boolean;
-    dueDate?: string;
-    user: PopulatedUser;
-    assignedTo?: PopulatedUser[];
-}
-
-const TaskForm = () => {
-    const { taskId } = useParams<{ taskId: string }>();
-    const navigate = useNavigate();
+const TaskEdit: React.FC<TaskEditFormModalProps> = ({ open, handleClose, task }) => {
     const { token } = useAuth();
-
-    const [newTaskTitle, setNewTaskTitle] = useState('');
-    const [newTaskDescription, setNewTaskDescription] = useState('');
+    const [title, setTitle] = useState(task.title);
+    const [description, setDescription] = useState(task.description || '');
+    const [activities, setActivities] = useState(task.activities.map(a => a.name) || []);
     const [newActivityInput, setNewActivityInput] = useState('');
-    const [newActivities, setNewActivities] = useState<string[]>([]);
-    const [newDueDate, setNewDueDate] = useState('');
-    const [allUsers, setAllUsers] = useState<PopulatedUser[]>([]);
-    const [selectedAssignedTo, setSelectedAssignedTo] = useState<string[]>([]);
-    const [editingTask, setEditingTask] = useState<Task | null>(null);
+    const [dueDate, setDueDate] = useState(task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '');
+    const [allUsers, setAllUsers] = useState<User[]>([]);
+    const [selectedAssignedTo, setSelectedAssignedTo] = useState(task.assignedTo?.map(u => u._id) || []);
     const [error, setError] = useState<string | null>(null);
-    const [loadingTask, setLoadingTask] = useState(false);
+    const [success, setSuccess] = useState<string | null>(null);
 
     const config = {
         headers: {
@@ -66,83 +49,47 @@ const TaskForm = () => {
             }
         };
         fetchUsers();
+    }, [token]);
 
-        if (taskId && token) {
-            setLoadingTask(true);
-            const fetchTask = async () => {
-                try {
-                    const response = await axios.get(`/api/tasks/${taskId}`, config);
-                    const task: Task = response.data;
-                    setEditingTask(task);
-                    setNewTaskTitle(task.title);
-                    setNewTaskDescription(task.description || '');
-                    setNewActivities(task.activities.map((a: Activity) => a.name));
-                    setNewDueDate(task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '');
-                    setSelectedAssignedTo(task.assignedTo?.map((u) => u._id) || []);
-                    setError(null);
-                } catch (err: any) {
-                    setError('No se pudo cargar la tarea para edición. Verifique el ID o su conexión.');
-                    console.error('Error al cargar la tarea para edición:', err);
-                    navigate('/tasks');
-                } finally {
-                    setLoadingTask(false);
-                }
-            };
-            fetchTask();
-        } else if (!taskId) {
-            setNewTaskTitle('');
-            setNewTaskDescription('');
-            setNewActivities([]);
-            setNewDueDate('');
-            setSelectedAssignedTo([]);
-            setEditingTask(null);
-            setError(null);
-            setLoadingTask(false);
-        }
-    }, [taskId, token, navigate]);
-
-    const handleCreateOrUpdateTask = async (e: React.FormEvent) => {
+    const handleUpdateTask = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newTaskTitle || !token) {
+        if (!title || !token) {
             setError('El título es obligatorio y debe estar autenticado.');
             return;
         }
 
         const taskData = {
-            title: newTaskTitle,
-            description: newTaskDescription,
-            activities: newActivities,
-            dueDate: newDueDate || undefined,
+            title: title,
+            description: description,
+            activities: activities,
+            dueDate: dueDate || undefined,
             assignedTo: selectedAssignedTo,
         };
 
         try {
-            if (editingTask) {
-                await axios.put(`/api/tasks/${editingTask._id}`, taskData, config);
-                setError('Tarea actualizada exitosamente.');
-            } else {
-                await axios.post('/api/tasks', taskData, config);
-                setError('Tarea creada exitosamente.');
-            }
+            await axios.put(`/api/tasks/${task._id}`, taskData, config);
+            setSuccess('Tarea actualizada exitosamente.');
+            setError(null);
             setTimeout(() => {
-                navigate('/tasks'); // Vuelve al dashboard después de 1 segundo
+                handleClose();
             }, 1000);
         } catch (err: any) {
             console.error('Error al guardar la tarea:', err.response?.data || err.message);
             setError(err.response?.data?.message || 'No se pudo guardar la tarea.');
+            setSuccess(null);
         }
     };
 
     const handleAddActivity = (e: React.KeyboardEvent<HTMLDivElement>) => {
         if (e.key === 'Enter' && newActivityInput.trim() !== '') {
             e.preventDefault();
-            setNewActivities(prevActivities => [...prevActivities, newActivityInput.trim()]);
+            setActivities(prevActivities => [...prevActivities, newActivityInput.trim()]);
             setNewActivityInput('');
         }
     };
 
     const handleDeleteActivity = (activityToDelete: string) => {
-        setNewActivities(prevActivities => prevActivities.filter(activity => activity !== activityToDelete));
+        setActivities(prevActivities => prevActivities.filter(activity => activity !== activityToDelete));
     };
 
     const handleCollaboratorChange = (event: any) => {
@@ -154,31 +101,34 @@ const TaskForm = () => {
         );
     };
 
-    if (loadingTask) {
-        return (
-            <Container maxWidth="sm" sx={{ mt: 4, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-                <CircularProgress />
-                <Typography variant="h6" sx={{ mt: 2 }}>Cargando tarea...</Typography>
-            </Container>
-        );
-    }
-
     return (
-        <Container maxWidth="sm" sx={{ mt: 4 }}>
-            <Paper elevation={3} sx={{ p: 4 }}>
+        <Modal open={open} onClose={handleClose}>
+            <Box sx={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: 600,
+                bgcolor: 'background.paper',
+                boxShadow: 24,
+                p: 4,
+                maxHeight: '90vh',
+                overflowY: 'auto'
+            }}>
                 <Typography variant="h5" component="h2" gutterBottom align="center">
-                    {editingTask ? 'Editar Tarea' : 'Crear Nueva Tarea'}
+                    Editar Tarea
                 </Typography>
-                {error && <Alert severity={error.includes("exitosamente") ? "success" : "error"} sx={{ mb: 2 }}>{error}</Alert>}
-                <Box component="form" onSubmit={handleCreateOrUpdateTask} noValidate sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+                {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+                <Box component="form" onSubmit={handleUpdateTask} noValidate sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <TextField
                         color="secondary"
                         label="Título de la tarea"
                         variant="outlined"
                         required
                         fullWidth
-                        value={newTaskTitle}
-                        onChange={(e) => setNewTaskTitle(e.target.value)}
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
                     />
                     <TextField
                         color='secondary'
@@ -187,8 +137,8 @@ const TaskForm = () => {
                         multiline
                         rows={1}
                         fullWidth
-                        value={newTaskDescription}
-                        onChange={(e) => setNewTaskDescription(e.target.value)}
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
                     />
                     <Box>
                         <Typography variant="subtitle1" gutterBottom>Actividades</Typography>
@@ -202,7 +152,7 @@ const TaskForm = () => {
                             onKeyDown={handleAddActivity}
                         />
                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                            {newActivities.map((activity, index) => (
+                            {activities.map((activity, index) => (
                                 <Chip
                                     key={index}
                                     label={activity}
@@ -223,7 +173,7 @@ const TaskForm = () => {
                             multiple
                             value={selectedAssignedTo}
                             onChange={handleCollaboratorChange}
-                            input={<OutlinedInput id="select-collaborator-chip" label="Colaboradores" />}
+                            input={<OutlinedInput id="select-collaborator-chip" label="Asignar a:" />}
                             renderValue={(selected) => (
                                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                                     {selected.map((value) => {
@@ -254,22 +204,22 @@ const TaskForm = () => {
                         type="date"
                         variant="outlined"
                         fullWidth
-                        value={newDueDate}
-                        onChange={(e) => setNewDueDate(e.target.value)}
+                        value={dueDate}
+                        onChange={(e) => setDueDate(e.target.value)}
                         InputLabelProps={{ shrink: true }}
                     />
                     <Box sx={{ display: 'flex', gap: 1 }}>
                         <Button type="submit" variant="outlined" color="success">
-                            {editingTask ? 'Guardar Cambios' : 'Crear Tarea'}
+                            Guardar Cambios
                         </Button>
-                        <Button variant="outlined" color="error" onClick={() => navigate('/tasks')}>
+                        <Button variant="outlined" color="error" onClick={handleClose}>
                             Cancelar
                         </Button>
                     </Box>
                 </Box>
-            </Paper>
-        </Container>
+            </Box>
+        </Modal>
     );
 };
 
-export default TaskForm;
+export default TaskEdit;

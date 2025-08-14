@@ -1,7 +1,7 @@
 import mongoose, { Document, Schema, Types } from 'mongoose';
 
 export interface IActivity {
-  _id?: Types.ObjectId; // <-- Agrega esta línea para que TypeScript lo reconozca
+  _id?: Types.ObjectId;
   name: string;
   completed: boolean;
 }

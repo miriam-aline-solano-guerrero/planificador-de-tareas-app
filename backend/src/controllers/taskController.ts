@@ -14,12 +14,17 @@ export const getTasks = async (req: AuthenticatedRequest, res: Response) => {
             res.status(401).json({ message: 'No autorizado, no hay usuario.' });
             return;
         }
+
         const tasks = await Task.find({
             $or: [
                 { user: userId },
                 { assignedTo: userId }
             ]
-        }).populate('user', 'name role').populate('assignedTo', 'name role');
+        })
+        // **CORRECCIÓN AQUÍ:** Incluimos el campo 'email' en populate.
+        .populate('user', 'name email role')
+        .populate('assignedTo', 'name email role');
+
         res.status(200).json(tasks);
     } catch (error) {
         console.error('Error al obtener las tareas:', error);
@@ -30,11 +35,32 @@ export const getTasks = async (req: AuthenticatedRequest, res: Response) => {
 export const getTask = async (req: AuthenticatedRequest, res: Response) => {
     try {
         const userId = req.user?._id;
-        const task = await Task.findById(req.params.id);
-        if (!task || task.user?.toString() !== userId?.toString()) {
-            res.status(404).json({ message: 'Tarea no encontrada o no pertenece al usuario.' });
+        if (!userId) {
+            res.status(401).json({ message: 'No autorizado, no hay usuario.' });
             return;
         }
+
+        const task = await Task.findById(req.params.id)
+            .populate('user', 'name email role')
+            .populate('assignedTo', 'name email role');
+
+        if (!task) {
+            res.status(404).json({ message: 'Tarea no encontrada.' });
+            return;
+        }
+
+        // Obtener los IDs de los usuarios asignados para la validación
+        const assignedToUserIds = task.assignedTo?.map(u => u._id.toString()) || [];
+
+        // **CORRECCIÓN:** La tarea debe ser accesible si la creaste O si te fue asignada.
+        const isOwner = task.user?._id.toString() === userId.toString();
+        const isAssigned = assignedToUserIds.includes(userId.toString());
+
+        if (!isOwner && !isAssigned) {
+            res.status(403).json({ message: 'No tienes permiso para ver esta tarea.' });
+            return;
+        }
+
         res.status(200).json(task);
     } catch (error) {
         console.error('Error al obtener la tarea:', error);

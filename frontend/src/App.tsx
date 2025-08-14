@@ -5,7 +5,7 @@ import Navbar from './components/Navbar';
 import Auth from './components/Auth';
 import TaskDashboard from './components/TaskDashboard';
 import TaskForm from './components/TaskForm';
-import TaskProgress from './components/TaskProgress';
+//import TaskProgress from './components/TaskProgress';
 import Home from './components/Home';
 import { Container, Box } from '@mui/material';
 
@@ -21,7 +21,6 @@ const App = () => {
               <Route path="/tasks" element={<TaskDashboard />} />
               <Route path="/tasks/create" element={<TaskForm />} /> 
               <Route path="/tasks/edit/:taskId" element={<TaskForm />} /> 
-              <Route path="/progress" element={<TaskProgress />} />
               <Route path="/login" element={<Auth />} />
             </Routes>
           </Box>

@@ -69,10 +69,6 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
             res.status(404).json({ message: 'Usuario no encontrado.' });
             return;
         }
-
-        // Aquí iría la lógica de validación, pero la hemos quitado para fines de prueba
-        // ...
-
         await User.deleteOne({ _id: req.params.id });
         res.status(200).json({ message: 'Usuario eliminado exitosamente.' });
     } catch (error: any) {
