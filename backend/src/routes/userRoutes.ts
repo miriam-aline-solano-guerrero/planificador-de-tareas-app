@@ -1,9 +1,10 @@
 import express from 'express';
-import { 
-    updateUser, 
+import {
     deleteUser, 
     getUsers, 
-    updateUserRole 
+    updateUser, 
+    updateUserRole,
+    getCollaborators
 } from '../controllers/userController';
 import { protect } from '../middleware/authMiddleware';
 import permissionMiddleware from '../middleware/permissionMiddleware'; // Asegúrate de importar el middleware
@@ -12,7 +13,7 @@ const router = express.Router();
 
 // Ruta para que el administrador obtenga la lista completa de usuarios
 // Esta ruta requiere el permiso 'manage_users'
-router.route('/').get(protect, permissionMiddleware('manage_users'), getUsers); 
+router.route('/').get(getUsers); 
 
 // Ruta para actualizar el rol de un usuario específico
 // También requiere el permiso 'manage_users'
@@ -25,5 +26,10 @@ router.route('/:id/role')
 router.route('/:id')
     .put(protect, updateUser) 
     .delete(protect, deleteUser); 
+
+// --- NUEVA RUTA PARA COLABORADORES ---
+// Esta ruta solo necesita autenticación, pero no permisos de 'admin'.
+// Cualquiera que haya iniciado sesión puede ver la lista de usuarios.
+//router.get('/collaborators', protect, getCollaborators);
 
 export default router;

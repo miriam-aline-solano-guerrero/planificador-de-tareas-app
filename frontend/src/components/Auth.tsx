@@ -16,31 +16,39 @@ import {
 } from '@mui/material';
 
 const Auth = () => {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null); // Se corrige 'setSucces'
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccess(null); // Se usa la función corregida
+    
     try {
       if (isLogin) {
-        console.log('Enviando al backend:', { email, password });
+        // En el backend, ya se manejará el prefijo '/api' del proxy
         const response = await axios.post('/api/auth/login', { email, password });
-        // --- CAMBIO CLAVE AQUÍ: Se pasa la respuesta completa ---
         login(response.data);
+        navigate('/tasks'); // Solo navega después de un login exitoso
       } else {
+        // La asignación del rol ahora se maneja en el backend, no en el frontend
         const response = await axios.post('/api/auth/register', { name, email, password });
-        // --- CAMBIO CLAVE AQUÍ: Se pasa la respuesta completa ---
-        login(response.data);
+        
+        setSuccess(response.data.message || '¡Registro exitoso! Puedes iniciar sesión ahora.');
+        setEmail('');
+        setPassword('');
+        setName('');
+        // Al registrarse, no se navega inmediatamente, se muestra un mensaje
+        // para que el usuario inicie sesión.
+        setIsLogin(true); 
       }
-      navigate('/tasks');
     } catch (err: any) {
-      console.error(err);
       setError(err.response?.data?.message || 'Ocurrió un error. Inténtalo de nuevo.');
     }
   };
@@ -52,6 +60,7 @@ const Auth = () => {
           {isLogin ? 'Iniciar Sesión' : 'Registrarse'}
         </Typography>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
         <Box component="form" onSubmit={handleSubmit} noValidate sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {!isLogin && (
             <TextField
@@ -96,7 +105,11 @@ const Auth = () => {
           ) : (
             <>
               ¿Ya tienes una cuenta?{' '}
-              <Link component="button" onClick={() => setIsLogin(true)}>
+              <Link component="button" onClick={() => {
+                setIsLogin(true);
+                setSuccess(null);
+                setError(null);
+              }}>
                 Inicia sesión
               </Link>
             </>

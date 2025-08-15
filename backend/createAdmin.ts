@@ -1,11 +1,11 @@
 import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
+// Se ha eliminado la importación de bcrypt
 import User from './src/models/User'; // ruta modelo de Usuario
 import Role from './src/models/Role'; // ruta modelo de Rol
 import dotenv from 'dotenv';
 dotenv.config();
 
-const MONGO_URI = 'mongodb://127.0.0.1:27017/planificador-tareas'; 
+const MONGO_URI = 'mongodb://127.0.0.1:27017/planificador-tareas';
 const ADMIN_EMAIL = 'admin@hotmail.com';
 const ADMIN_PASSWORD = 'password';
 
@@ -37,13 +37,11 @@ const createAdmin = async () => {
     }
 
     // 3. Crear el usuario con el rol de 'admin'
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(ADMIN_PASSWORD, salt);
-
+    // La contraseña se guarda en texto plano
     const adminUser = new User({
       name: 'Admin',
       email: ADMIN_EMAIL,
-      password: hashedPassword,
+      password: ADMIN_PASSWORD, // <-- Se asigna la contraseña directamente
       role: adminRole._id,
     });
 

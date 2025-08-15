@@ -14,6 +14,7 @@ export interface ITask extends Document {
   completed: boolean;
   dueDate?: Date;
   assignedTo?: Types.ObjectId[];
+  dependencies: Schema.Types.ObjectId[]; // arreglo de IDS de tareas creadas
 }
 
 const TaskSchema: Schema = new Schema(
@@ -47,6 +48,10 @@ const TaskSchema: Schema = new Schema(
       type: Schema.Types.ObjectId,
       ref: 'User',
     }],
+    dependencies: [{
+      type: Schema.Types.ObjectId, 
+      ref: 'Task',
+    }]
   },
   {
     timestamps: true,

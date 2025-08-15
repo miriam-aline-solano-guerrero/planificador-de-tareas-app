@@ -2,6 +2,25 @@ import { Request, Response } from 'express';
 import Role from '../models/Role';
 import mongoose from 'mongoose';
 
+const ALL_PERMISSIONS = [
+    'read_users',
+    'create_users',
+    'update_users',
+    'delete_users',
+    'read_roles',
+    'create_roles',
+    'update_roles',
+    'delete_roles',
+    'read_tasks',
+    'create_tasks',
+    'update_tasks',
+    'delete_tasks'
+];
+
+export const getAllPermissions = (req: Request, res: Response) => {
+    res.status(200).json(ALL_PERMISSIONS);
+};
+
 export const getRoles = async (req: Request, res: Response): Promise<void> => {
   try {
     const roles = await Role.find({});

@@ -29,6 +29,18 @@ export const getUsers = async (req: AuthenticatedRequest, res: Response): Promis
     }
 };
 
+// --- NUEVA FUNCIÓN PARA OBTENER COLABORADORES ---
+export const getCollaborators = async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        // Obtenemos todos los usuarios, pero solo sus ID, nombre y email
+        const users = await User.find({}).select('_id name email');
+        res.status(200).json(users);
+    } catch (error) {
+        console.error('Error al obtener colaboradores:', error);
+        res.status(500).json({ message: 'Error al obtener colaboradores.' });
+    }
+};
+
 /**
  * @desc    Actualizar el rol de un usuario (solo para administradores)
  * @route   PUT /api/users/:id/role

@@ -4,7 +4,8 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import {
     Container, Typography, TextField, Button, Box, Paper, Alert,
-    FormControl, InputLabel, Select, MenuItem, Checkbox, Chip, OutlinedInput, CircularProgress
+    FormControl, InputLabel, Select, MenuItem, Checkbox, Chip, OutlinedInput, CircularProgress,
+    ListItemText
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 
@@ -31,6 +32,7 @@ export interface Task {
     dueDate?: string;
     user: PopulatedUser;
     assignedTo?: PopulatedUser[];
+    dependencies?: { _id: string; title: string; completed: boolean }[]; // Agregada la dependencia
 }
 
 const TaskForm = () => {
@@ -49,10 +51,25 @@ const TaskForm = () => {
     const [error, setError] = useState<string | null>(null);
     const [loadingTask, setLoadingTask] = useState(false);
 
+    // --- NUEVOS ESTADOS PARA DEPENDENCIAS ---
+    const [allTasks, setAllTasks] = useState<Task[]>([]);
+    const [selectedDependencies, setSelectedDependencies] = useState<string[]>([]);
+
     const config = {
         headers: {
             Authorization: `Bearer ${token}`,
         },
+    };
+
+    // --- FUNCIÓN PARA OBTENER TAREAS DISPONIBLES COMO DEPENDENCIAS ---
+    const fetchAllTasks = async () => {
+        try {
+            const response = await axios.get('/api/tasks', config);
+            const filteredTasks = response.data.filter((task: Task) => task._id !== taskId);
+            setAllTasks(filteredTasks);
+        } catch (err) {
+            console.error('Error al obtener la lista de tareas para dependencias:', err);
+        }
     };
 
     useEffect(() => {
@@ -66,6 +83,7 @@ const TaskForm = () => {
             }
         };
         fetchUsers();
+        fetchAllTasks();
 
         if (taskId && token) {
             setLoadingTask(true);
@@ -79,6 +97,8 @@ const TaskForm = () => {
                     setNewActivities(task.activities.map((a: Activity) => a.name));
                     setNewDueDate(task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '');
                     setSelectedAssignedTo(task.assignedTo?.map((u) => u._id) || []);
+                    // --- OBTENER DEPENDENCIAS EXISTENTES ---
+                    setSelectedDependencies(task.dependencies?.map(d => d._id) || []);
                     setError(null);
                 } catch (err: any) {
                     setError('No se pudo cargar la tarea para edición. Verifique el ID o su conexión.');
@@ -95,6 +115,7 @@ const TaskForm = () => {
             setNewActivities([]);
             setNewDueDate('');
             setSelectedAssignedTo([]);
+            setSelectedDependencies([]); // Limpiar estado de dependencias
             setEditingTask(null);
             setError(null);
             setLoadingTask(false);
@@ -114,6 +135,7 @@ const TaskForm = () => {
             activities: newActivities,
             dueDate: newDueDate || undefined,
             assignedTo: selectedAssignedTo,
+            dependencies: selectedDependencies,
         };
 
         try {
@@ -247,6 +269,36 @@ const TaskForm = () => {
                             ))}
                         </Select>
                     </FormControl>
+
+                    {/* --- NUEVO: SELECTOR DE DEPENDENCIAS --- */}
+                    <FormControl fullWidth>
+                        <InputLabel color="secondary" id="dependencies-select-label">Depende de (Tareas)</InputLabel>
+                        <Select
+                            color='secondary'
+                            labelId="dependencies-select-label"
+                            id="dependencies-select"
+                            multiple
+                            value={selectedDependencies}
+                            onChange={(e) => setSelectedDependencies(e.target.value as string[])}
+                            input={<OutlinedInput label="Depende de (Tareas)" />}
+                            renderValue={(selected) => (
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                    {selected.map((value) => {
+                                        const task = allTasks.find(t => t._id === value);
+                                        return <Chip key={value} label={task ? task.title : 'Desconocido'} />;
+                                    })}
+                                </Box>
+                            )}
+                        >
+                            {allTasks.map(task => (
+                                <MenuItem key={task._id} value={task._id}>
+                                    <Checkbox color="secondary" checked={selectedDependencies.indexOf(task._id) > -1} />
+                                    <ListItemText primary={task.title} />
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                    {/* --- FIN: SELECTOR DE DEPENDENCIAS --- */}
 
                     <TextField
                         color='secondary'

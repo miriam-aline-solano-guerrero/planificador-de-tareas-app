@@ -25,9 +25,6 @@ const protect = async (req: AuthenticatedRequest, res: Response, next: NextFunct
             token = req.headers.authorization.split(' ')[1];
             const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as JwtPayload;
 
-            // --- CORRECCIÓN CLAVE ---
-            // Usamos el casting 'as UserDocument' para asegurar que el resultado de la consulta
-            // tenga el tipo que necesitamos.
             const userFromDb = await User.findById(decoded.id).select('_id role') as UserDocument;
 
             if (!userFromDb) {

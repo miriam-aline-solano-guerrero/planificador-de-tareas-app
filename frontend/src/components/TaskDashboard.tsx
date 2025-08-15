@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios, { isAxiosError } from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import {
     Container, Typography, List, ListItem, ListItemText,
     CircularProgress, Alert, Box, Paper, Checkbox, IconButton,
-    Collapse, Button
+    Collapse, Button,
+    Chip
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -26,6 +27,12 @@ interface Activity {
     completed: boolean;
 }
 
+interface Dependency {
+    _id: string,
+    title: string,
+    completed: boolean;
+}
+
 export interface Task {
     _id: string;
     title: string;
@@ -35,6 +42,7 @@ export interface Task {
     dueDate?: string;
     user: User;
     assignedTo?: User[];
+    dependencies?: Dependency[];
 }
 
 const TaskDashboard = () => {
@@ -62,8 +70,8 @@ const TaskDashboard = () => {
         }
         try {
             setLoading(true);
-            // --- CAMBIO AQUÍ: Endpoint condicional basado en el rol de admin ---
-            const endpoint = isAdmin ? '/api/tasks/all' : '/api/tasks';
+            //ruta para todas las tareas? para el administrador, crear desde el back?
+            const endpoint = isAdmin ? '/api/tasks' : '/api/tasks/my';
             const response = await axios.get<Task[]>(endpoint, config);
             setTasks(response.data);
             setError(null);
@@ -98,15 +106,29 @@ const TaskDashboard = () => {
         fetchTasks();
     };
 
-    const handleToggleCompleted = async (id: string, completed: boolean) => {
+    const handleToggleCompleted = async (task: Task) => {
+        if (task.completed) {
+            alert('Esta tarea ya está completada.');
+            return;
+        }
+
         try {
-            await axios.put(`/api/tasks/${id}`, { completed: !completed }, config);
-            setTasks(tasks.map(task =>
-                task._id === id ? { ...task, completed: !completed } : task
-            ));
+            // El backend validará las dependencias al intentar completar la tarea
+            await axios.put(`/api/tasks/${task._id}`, { completed: true }, config);
+            // Actualiza el estado si la operación es exitosa
+            setTasks(prevTasks => 
+                prevTasks.map(t => 
+                    t._id === task._id ? { ...t, completed: true } : t
+                )
+            );
         } catch (err: any) {
-            console.error('Error al actualizar la tarea:', err.response?.data || err.message);
-            setError('No se pudo actualizar el estado de la tarea.');
+            if (isAxiosError(err) && err.response?.status === 400) {
+                const incompleteTasks = err.response.data.incompleteTasks;
+                alert(`${err.response.data.message}\n\nDeberás completar primero:\n- ${incompleteTasks.join('\n- ')}`);
+            } else {
+                console.error('Error al actualizar la tarea:', err.response?.data || err.message);
+                setError('No se pudo actualizar el estado de la tarea.');
+            }
         }
     };
 
@@ -145,6 +167,11 @@ const TaskDashboard = () => {
         return user?._id === task.user._id;
     };
 
+    // --- NUEVA FUNCIÓN: Comprobar si la tarea está bloqueada por dependencias ---
+    const isTaskBlocked = (task: Task): boolean => {
+        return !!task.dependencies?.some(dep => !dep.completed);
+    };
+
     return (
         <Container maxWidth="md" sx={{ mt: 4 }}>
             <Typography variant="h4" component="h2" gutterBottom>
@@ -163,75 +190,106 @@ const TaskDashboard = () => {
                         Lista de Tareas
                     </Typography>
                     <List>
-                        {tasks.map(task => (
-                            <Paper elevation={1} sx={{ mb: 1 }} key={task._id}>
-                                <ListItem sx={{ textDecoration: task.completed ? 'line-through' : 'none' }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                                        <Checkbox
-                                            checked={task.completed}
-                                            onChange={() => handleToggleCompleted(task._id, task.completed)}
-                                            color="primary"
-                                        />
-                                        <ListItemText
-                                            primary={task.title}
-                                            secondary={
-                                                <>
-                                                    {task.description && <div>{task.description}</div>}
-                                                    {task.dueDate && <div>Fecha de entrega: {new Date(task.dueDate).toLocaleDateString()}</div>}
-                                                    {/* --- MUESTRA AL CREADOR SOLO SI ES ADMIN --- */}
-                                                    {isAdmin && task.user && <div>Creada por: {task.user.email}</div>}
-                                                    {task.assignedTo && task.assignedTo.length > 0 && (
-                                                        <div>Asignado a: {task.assignedTo.map(u => u.email).join(', ')}</div>
-                                                    )}
-                                                </>
-                                            }
-                                            sx={{ flexGrow: 1 }}
-                                        />
-                                        <Box sx={{ display: 'flex', gap: 1 }}>
-                                            <IconButton onClick={() => toggleExpanded(task._id)}>
-                                                {isTaskExpanded(task._id) ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                                            </IconButton>
-                                            {/* --- MUESTRA LOS BOTONES DE EDITAR Y ELIMINAR SOLO SI EL USUARIO PUEDE MODIFICAR LA TAREA --- */}
-                                            {canModifyTask(task) && (
-                                                <>
-                                                    <IconButton edge="end" aria-label="edit" onClick={() => handleOpenEditModal(task)}>
-                                                        <EditIcon />
-                                                    </IconButton>
-                                                    <IconButton edge="end" aria-label="delete" onClick={() => handleDeleteTask(task._id)}>
-                                                        <DeleteIcon />
-                                                    </IconButton>
-                                                </>
-                                            )}
+                        {tasks.map(task => {
+                            const blocked = isTaskBlocked(task);
+                            const checkboxColor = blocked ? 'error' : 'primary';
+
+                            return (
+                                <Paper elevation={1} sx={{ mb: 1 }} key={task._id}>
+                                    <ListItem sx={{ textDecoration: task.completed ? 'line-through' : 'none' }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                                            {/* --- CAMBIOS PARA DEPENDENCIAS: Checkbox con validación visual --- */}
+                                            <Checkbox
+                                                edge="end"
+                                                onChange={() => handleToggleCompleted(task)}
+                                                checked={task.completed}
+                                                disabled={task.completed || blocked} // Deshabilitado si ya está completa O si está bloqueada
+                                                color={checkboxColor}
+                                            />
+                                            <ListItemText
+                                                primary={
+                                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                        {task.title}
+                                                        {/* Icono de bloqueo si la tarea está bloqueada */}
+                                                        {blocked && !task.completed && (
+                                                            <Box sx={{ ml: 1, display: 'flex', alignItems: 'center' }}>
+                                                                <span role="img" aria-label="blocked" style={{ fontSize: '1.2rem', color: 'red' }}>🔒</span>
+                                                            </Box>
+                                                        )}
+                                                    </Box>
+                                                }
+                                                secondary={
+                                                    <>
+                                                        {task.description && <div>{task.description}</div>}
+                                                        {task.dueDate && <div>Fecha de entrega: {new Date(task.dueDate).toLocaleDateString()}</div>}
+                                                        {isAdmin && task.user && <div>Creada por: {task.user.email}</div>}
+                                                        {task.assignedTo && task.assignedTo.length > 0 && (
+                                                            <div>Asignado a: {task.assignedTo.map(u => u.email).join(', ')}</div>
+                                                        )}
+                                                        {/* --- CAMBIOS PARA DEPENDENCIAS: Mostrar las dependencias --- */}
+                                                        {task.dependencies && task.dependencies.length > 0 && (
+                                                            <div>
+                                                                Depende de: 
+                                                                {task.dependencies.map(dep => (
+                                                                    <Chip
+                                                                        key={dep._id}
+                                                                        label={dep.title}
+                                                                        size="small"
+                                                                        color={dep.completed ? "success" : "error"}
+                                                                        sx={{ ml: 0.5, mr: 0.5 }}
+                                                                    />
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                }
+                                                sx={{ flexGrow: 1 }}
+                                            />
+                                            <Box sx={{ display: 'flex', gap: 1 }}>
+                                                <IconButton onClick={() => toggleExpanded(task._id)}>
+                                                    {isTaskExpanded(task._id) ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                                                </IconButton>
+                                                {canModifyTask(task) && (
+                                                    <>
+                                                        <IconButton edge="end" aria-label="edit" onClick={() => handleOpenEditModal(task)}>
+                                                            <EditIcon />
+                                                        </IconButton>
+                                                        <IconButton edge="end" aria-label="delete" onClick={() => handleDeleteTask(task._id)}>
+                                                            <DeleteIcon />
+                                                        </IconButton>
+                                                    </>
+                                                )}
+                                            </Box>
                                         </Box>
-                                    </Box>
-                                </ListItem>
-                                <Collapse in={isTaskExpanded(task._id)} timeout="auto" unmountOnExit>
-                                    <Box sx={{ pl: 4, pt: 1, pb: 1 }}>
-                                        <Typography variant="subtitle2" gutterBottom>Actividades:</Typography>
-                                        <List dense>
-                                            {task.activities.length > 0 ? (
-                                                task.activities.map(activity => (
-                                                    <ListItem key={activity._id} disablePadding>
-                                                        <Checkbox
-                                                            checked={activity.completed}
-                                                            onChange={() => handleToggleActivityCompleted(task._id, activity._id, activity.completed)}
-                                                        />
-                                                        <ListItemText
-                                                            primary={activity.name}
-                                                            sx={{ textDecoration: activity.completed ? 'line-through' : 'none' }}
-                                                        />
-                                                    </ListItem>
-                                                ))
-                                            ) : (
-                                                <Typography variant="body2" color="text.secondary">
-                                                    No hay actividades para esta tarea.
-                                                </Typography>
-                                            )}
-                                        </List>
-                                    </Box>
-                                </Collapse>
-                            </Paper>
-                        ))}
+                                    </ListItem>
+                                    <Collapse in={isTaskExpanded(task._id)} timeout="auto" unmountOnExit>
+                                        <Box sx={{ pl: 4, pt: 1, pb: 1 }}>
+                                            <Typography variant="subtitle2" gutterBottom>Actividades:</Typography>
+                                            <List dense>
+                                                {task.activities.length > 0 ? (
+                                                    task.activities.map(activity => (
+                                                        <ListItem key={activity._id} disablePadding>
+                                                            <Checkbox
+                                                                checked={activity.completed}
+                                                                onChange={() => handleToggleActivityCompleted(task._id, activity._id, activity.completed)}
+                                                            />
+                                                            <ListItemText
+                                                                primary={activity.name}
+                                                                sx={{ textDecoration: activity.completed ? 'line-through' : 'none' }}
+                                                            />
+                                                        </ListItem>
+                                                    ))
+                                                ) : (
+                                                    <Typography variant="body2" color="text.secondary">
+                                                        No hay actividades para esta tarea.
+                                                    </Typography>
+                                                )}
+                                            </List>
+                                        </Box>
+                                    </Collapse>
+                                </Paper>
+                            );
+                        })}
                     </List>
                 </Paper>
             )}

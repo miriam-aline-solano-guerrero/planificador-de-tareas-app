@@ -1,36 +1,46 @@
 import { Request, Response } from 'express';
-import Task from '../models/Task';
-import User, { IUser } from '../models/User'; // Importamos IUser para el tipo
-import Role from '../models/Role'; // <--- Importamos el modelo de Role
-import mongoose from 'mongoose';
-import { Schema } from 'mongoose';
+import Task, { ITask } from '../models/Task';
+import User from '../models/User';
+import Role from '../models/Role';
+import mongoose, { Schema } from 'mongoose';
 
 // Definimos la interfaz de la solicitud autenticada
 interface AuthenticatedRequest extends Request {
     user?: {
         _id: Schema.Types.ObjectId;
-        name: string;
-        email: string;
         role: Schema.Types.ObjectId;
     };
 }
 
+// --- FUNCIÓN CORREGIDA: getTasks ---
 export const getTasks = async (req: AuthenticatedRequest, res: Response) => {
     try {
         const userId = req.user?._id;
-        if (!userId) {
-            res.status(401).json({ message: 'No autorizado, no hay usuario.' });
-            return;
+        const userRole = req.user?.role;
+
+        if (!userId || !userRole) {
+            return res.status(401).json({ message: 'No autorizado, no hay usuario o rol.' });
         }
 
-        const tasks = await Task.find({
-            $or: [
-                { user: userId },
-                { assignedTo: userId }
-            ]
-        })
-        .populate('user', 'name email role')
-        .populate('assignedTo', 'name email role');
+        // Obtener el nombre del rol del usuario para la lógica condicional
+        const userRoleDoc = await Role.findById(userRole);
+        const isAdmin = userRoleDoc?.name === 'admin';
+
+        let query = {}; // Por defecto, la consulta está vacía (para el admin)
+
+        if (!isAdmin) {
+            // Si no es admin, la consulta debe filtrar por tareas creadas o asignadas a él.
+            query = {
+                $or: [
+                    { user: userId },
+                    { assignedTo: userId }
+                ]
+            };
+        }
+
+        const tasks = await Task.find(query)
+            .populate('user', 'name email')
+            .populate('assignedTo', 'name email');
 
         res.status(200).json(tasks);
     } catch (error) {
@@ -42,9 +52,10 @@ export const getTasks = async (req: AuthenticatedRequest, res: Response) => {
 export const getTask = async (req: AuthenticatedRequest, res: Response) => {
     try {
         const userId = req.user?._id;
+        const userRole = req.user?.role;
+
         if (!userId) {
-            res.status(401).json({ message: 'No autorizado, no hay usuario.' });
-            return;
+            return res.status(401).json({ message: 'No autorizado, no hay usuario.' });
         }
 
         const task = await Task.findById(req.params.id)
@@ -52,18 +63,20 @@ export const getTask = async (req: AuthenticatedRequest, res: Response) => {
             .populate('assignedTo', 'name email role');
 
         if (!task) {
-            res.status(404).json({ message: 'Tarea no encontrada.' });
-            return;
+            return res.status(404).json({ message: 'Tarea no encontrada.' });
         }
-
-        const assignedToUserIds = task.assignedTo?.map(u => u._id.toString()) || [];
-
+        
+        // Obtener el nombre del rol del usuario para la lógica condicional
+        const userRoleDoc = await Role.findById(userRole);
+        const isAdmin = userRoleDoc?.name === 'admin';
+        
         const isOwner = task.user?._id.toString() === userId.toString();
-        const isAssigned = assignedToUserIds.includes(userId.toString());
+        const isAssigned = task.assignedTo?.some(u => u._id.toString() === userId.toString());
 
-        if (!isOwner && !isAssigned) {
-            res.status(403).json({ message: 'No tienes permiso para ver esta tarea.' });
-            return;
+        // --- LÓGICA DE PERMISOS ---
+        // El admin puede ver cualquier tarea. El dueño o el asignado también.
+        if (!isAdmin && !isOwner && !isAssigned) {
+            return res.status(403).json({ message: 'No tienes permiso para ver esta tarea.' });
         }
 
         res.status(200).json(task);
@@ -77,9 +90,9 @@ export const createTask = async (req: AuthenticatedRequest, res: Response) => {
     try {
         const { title, description, activities, dueDate, assignedTo } = req.body;
         const userId = req.user?._id;
+
         if (!userId) {
-            res.status(401).json({ message: 'No autorizado, no hay usuario.' });
-            return;
+            return res.status(401).json({ message: 'No autorizado, no hay usuario.' });
         }
         
         const activityObjects = (activities || []).map((name: string) => ({ name, completed: false }));
@@ -92,6 +105,7 @@ export const createTask = async (req: AuthenticatedRequest, res: Response) => {
             dueDate,
             assignedTo,
         });
+
         const createdTask = await newTask.save();
         res.status(201).json(createdTask);
     } catch (error) {
@@ -100,14 +114,14 @@ export const createTask = async (req: AuthenticatedRequest, res: Response) => {
     }
 };
 
-// **Función para actualizar una tarea (CORREGIDA)**
 export const updateTask = async (req: AuthenticatedRequest, res: Response) => {
     try {
         const userId = req.user?._id;
         const userRole = req.user?.role;
-        const { title, description, activities, dueDate, assignedTo, completed } = req.body;
+        const { title, description, activities, dueDate, assignedTo, completed, dependencies } = req.body;
 
-        const task = await Task.findById(req.params.id);
+        // La tarea se busca y se popularizan las dependencias para poder acceder a ellas
+        const task = await Task.findById(req.params.id).populate('dependencies');
         if (!task) {
             return res.status(404).json({ message: 'Tarea no encontrada.' });
         }
@@ -116,28 +130,35 @@ export const updateTask = async (req: AuthenticatedRequest, res: Response) => {
         const isAdmin = roleDoc?.name === 'admin';
         const isOwner = task.user?.toString() === userId?.toString();
         
-         // --- LÍNEAS DE DEPURACIÓN AGREGADAS ---
-        console.log('--- Verificación de Permisos para updateTask ---');
-        console.log('ID del Usuario (token):', userId?.toString());
-        console.log('ID del Dueño de la Tarea:', task.user?.toString());
-        console.log('El usuario es dueño (isOwner):', isOwner);
-        console.log('El usuario es administrador (isAdmin):', isAdmin);
-        console.log('---------------------------------------------');
-        
-        // **LÓGICA DE PERMISOS:** Solo el admin o el dueño de la tarea pueden actualizarla.
-        // Si el usuario no es admin y no es el dueño, denegamos el acceso.
         if (!isAdmin && !isOwner) {
             return res.status(403).json({ message: 'No tienes permiso para editar esta tarea.' });
         }
         
-        // Actualiza los campos principales
+        // --- INICIO DE LA NUEVA LÓGICA DE DEPENDENCIAS ---
+        // Verificamos si la petición intenta marcar la tarea como completada.
+        if (completed === true) {
+            // Buscamos las dependencias que no han sido completadas.
+            const populatedDependencies = task.dependencies as unknown as ITask[];
+            const incompleteDependencies = populatedDependencies.filter(dep => !dep.completed);
+            
+            // Si hay dependencias incompletas, se devuelve un error.
+            if (incompleteDependencies.length > 0) {
+                return res.status(400).json({
+                    message: 'No se puede completar esta tarea. Primero debes completar las tareas dependientes.',
+                    incompleteTasks: incompleteDependencies.map(dep => dep.title)
+                });
+            }
+        }
+        // --- FIN DE LA NUEVA LÓGICA ---
+
+        // Actualización de campos
         if (title !== undefined) task.title = title;
         if (description !== undefined) task.description = description;
         if (dueDate !== undefined) task.dueDate = dueDate;
         if (assignedTo !== undefined) task.assignedTo = assignedTo;
         if (completed !== undefined) task.completed = completed;
+        if (dependencies !== undefined) task.dependencies = dependencies; // <-- AÑADIDO: Guardar las dependencias
         
-        // Manejo de actividades para no sobrescribir el estado
         if (activities) {
             const newActivityObjects = activities.map((name: string) => {
                 const existingActivity = task.activities.find(a => a.name === name);
@@ -154,7 +175,6 @@ export const updateTask = async (req: AuthenticatedRequest, res: Response) => {
     }
 };
 
-// **Función para eliminar una tarea (CORREGIDA)**
 export const deleteTask = async (req: AuthenticatedRequest, res: Response) => {
     try {
         const userId = req.user?._id;
@@ -170,7 +190,6 @@ export const deleteTask = async (req: AuthenticatedRequest, res: Response) => {
         const isAdmin = roleDoc?.name === 'admin';
         const isOwner = task.user?.toString() === userId?.toString();
         
-        // **LÓGICA DE PERMISOS:** Solo el admin o el dueño de la tarea pueden eliminarla.
         if (!isAdmin && !isOwner) {
             return res.status(403).json({ message: 'No tienes permiso para eliminar esta tarea.' });
         }
@@ -183,7 +202,6 @@ export const deleteTask = async (req: AuthenticatedRequest, res: Response) => {
     }
 };
 
-// **Función para actualizar el estado de una actividad (CORREGIDA)**
 export const updateActivityStatus = async (req: AuthenticatedRequest, res: Response) => {
     try {
         const { taskId, activityId } = req.params;
@@ -205,7 +223,6 @@ export const updateActivityStatus = async (req: AuthenticatedRequest, res: Respo
         const isOwner = task.user?.toString() === userId?.toString();
         const isAssigned = task.assignedTo?.some(id => id.toString() === userId?.toString());
 
-        // **LÓGICA DE PERMISOS:** El admin, el dueño o el usuario asignado pueden actualizar el estado.
         if (!isAdmin && !isOwner && !isAssigned) {
             return res.status(403).json({ message: 'No tienes permiso para actualizar esta tarea.' });
         }
