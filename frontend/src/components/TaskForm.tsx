@@ -63,20 +63,22 @@ const TaskForm = () => {
 
     // --- FUNCIÓN PARA OBTENER TAREAS DISPONIBLES COMO DEPENDENCIAS ---
     const fetchAllTasks = async () => {
-        try {
-            const response = await axios.get('/api/tasks', config);
-            const filteredTasks = response.data.filter((task: Task) => task._id !== taskId);
-            setAllTasks(filteredTasks);
-        } catch (err) {
-            console.error('Error al obtener la lista de tareas para dependencias:', err);
-        }
-    };
+    try {
+        // Especificamos que la respuesta es un array de tareas (Task[])
+        const response = await axios.get<Task[]>('/api/tasks', config);
+        // Ahora TypeScript sabe que response.data es un array y tiene el método .filter()
+        const filteredTasks = response.data.filter((task) => task._id !== taskId);
+        setAllTasks(filteredTasks);
+    } catch (err) {
+        console.error('Error al obtener la lista de tareas para dependencias:', err);
+    }
+};
 
     useEffect(() => {
         const fetchUsers = async () => {
             if (!token) return;
             try {
-                const response = await axios.get('/api/users', config);
+                const response = await axios.get<PopulatedUser[]>('/api/users', config);
                 setAllUsers(response.data);
             } catch (err) {
                 console.error('Error al obtener la lista de usuarios para el formulario:', err);
@@ -88,8 +90,10 @@ const TaskForm = () => {
         if (taskId && token) {
             setLoadingTask(true);
             const fetchTask = async () => {
+                if(!token) return;
                 try {
-                    const response = await axios.get(`/api/tasks/${taskId}`, config);
+                    // Especificamos que la respuesta es un array de usuarios (PopulatedUser[])
+                    const response = await axios.get<Task>(`/api/tasks/${taskId}`, config);
                     const task: Task = response.data;
                     setEditingTask(task);
                     setNewTaskTitle(task.title);
@@ -189,7 +193,7 @@ const TaskForm = () => {
         <Container maxWidth="sm" sx={{ mt: 4 }}>
             <Paper elevation={3} sx={{ p: 4 }}>
                 <Typography variant="h5" component="h2" gutterBottom align="center">
-                    {editingTask ? 'Editar Tarea' : 'Crear Nueva Tarea'}
+                    {editingTask ? 'Editar Tarea' : 'Crear Tarea'}
                 </Typography>
                 {error && <Alert severity={error.includes("exitosamente") ? "success" : "error"} sx={{ mb: 2 }}>{error}</Alert>}
                 <Box component="form" onSubmit={handleCreateOrUpdateTask} noValidate sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -270,9 +274,9 @@ const TaskForm = () => {
                         </Select>
                     </FormControl>
 
-                    {/* --- NUEVO: SELECTOR DE DEPENDENCIAS --- */}
+                    {/* SELECTOR DE DEPENDENCIAS */}
                     <FormControl fullWidth>
-                        <InputLabel color="secondary" id="dependencies-select-label">Depende de (Tareas)</InputLabel>
+                        <InputLabel color="secondary" id="dependencies-select-label">Asignar dependencias</InputLabel>
                         <Select
                             color='secondary'
                             labelId="dependencies-select-label"
@@ -298,7 +302,7 @@ const TaskForm = () => {
                             ))}
                         </Select>
                     </FormControl>
-                    {/* --- FIN: SELECTOR DE DEPENDENCIAS --- */}
+                    {/* FIN: SELECTOR DE DEPENDENCIAS */}
 
                     <TextField
                         color='secondary'

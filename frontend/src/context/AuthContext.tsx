@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
 import axios from 'axios';
 
-interface User {
+export interface User {
 _id: string;
 name: string;
 email: string;
@@ -12,7 +12,7 @@ token: string;
 interface AuthContextType {
  user: User | null;
  token: string | null;
- // Añadimos una variable de estado para saber si el usuario es admin.
+ // variable para saber si el rol es admin.
  isAdmin: boolean;
  login: (userData: User) => void;
  logout: () => void;
@@ -25,7 +25,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
  const [user, setUser] = useState<User | null>(null);
  const [token, setToken] = useState<string | null>(null);
  const [loading, setLoading] = useState(true);
- // --- NUEVO ESTADO: para saber si es admin ---
+ //para saber si es rol admin
  const [isAdmin, setIsAdmin] = useState(false);
 
  useEffect(() => {
@@ -38,7 +38,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(parsedUser);
     setToken(storedToken);
     
-    // --- LÓGICA AGREGADA: Verificamos el rol al cargar desde localStorage ---
+    // Verificar rol al cargar
     setIsAdmin(parsedUser.role.name === 'admin');
     axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
   } catch (e) {
@@ -51,7 +51,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = (userData: User) => {
  setUser(userData);
  setToken(userData.token);
- // --- LÓGICA AGREGADA: Verificamos el rol al iniciar sesión ---
+ //Verificar rol al iniciar sesión
  setIsAdmin(userData.role.name === 'admin');
  localStorage.setItem('user', JSON.stringify(userData));
  localStorage.setItem('token', userData.token);
@@ -61,7 +61,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
  const logout = () => {
   setUser(null);
   setToken(null);
-  // --- LÓGICA AGREGADA: Reseteamos el estado de admin al cerrar sesión ---
+  //Resetear el estado de admin al cerrar sesión
   setIsAdmin(false);
   localStorage.removeItem('user');
   localStorage.removeItem('token');

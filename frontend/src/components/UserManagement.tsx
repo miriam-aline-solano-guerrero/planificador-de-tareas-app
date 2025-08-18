@@ -27,7 +27,6 @@ const UserManagement: React.FC = () => {
     const { token } = useAuth();
     const [users, setUsers] = useState<User[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
-    // --- NUEVOS ESTADOS ---
     const [newRoleName, setNewRoleName] = useState('');
     const [newUserEmail, setNewUserEmail] = useState('');
     const [newUserPassword, setNewUserPassword] = useState('');
@@ -39,7 +38,6 @@ const UserManagement: React.FC = () => {
     const [newRolePermissions, setNewRolePermissions] = useState<string[]>([]); // Nuevo estado para los permisos
     const [allPermissions, setAllPermissions] = useState<string[]>([]); // Nuevo estado para todos los permisos disponibles
     
-    // Configuración para las peticiones de Axios
     const config = {
         headers: { Authorization: `Bearer ${token}` }
     };
@@ -68,7 +66,7 @@ const UserManagement: React.FC = () => {
 
     const fetchPermissions = async () => {
         try {
-            const res = await axios.get('/api/roles/permissions', config);
+            const res = await axios.get<string[]>('/api/roles/permissions', config);
             setAllPermissions(res.data);
         } catch (err) {
             setErrorMessage('No se pudo cargar la lista de permisos.');
@@ -76,7 +74,7 @@ const UserManagement: React.FC = () => {
         }
     };
 
-    // Efecto para cargar datos al inicio
+    //para cargar datos al inicio
     useEffect(() => {
         if (!token) return;
         fetchUsers();
@@ -84,7 +82,7 @@ const UserManagement: React.FC = () => {
         fetchPermissions();
     }, [token]);
 
-    // Lógica para actualizar rol de usuario (ya la tenías)
+    //actualizar rol de usuario
     const handleRoleChange = async (event: SelectChangeEvent<string>, userId: string) => {
         const newRoleId = event.target.value;
         try {
@@ -101,7 +99,7 @@ const UserManagement: React.FC = () => {
         }
     };
 
-    // --- LÓGICA AGREGADA PARA LA GESTIÓN DE ROLES ---
+    //GESTIÓN DE ROLES
     const handleCreateRole = async () => {
         if (!newRoleName) {
             setErrorMessage('El nombre del rol es obligatorio.');
@@ -133,25 +131,7 @@ const UserManagement: React.FC = () => {
         }
     };
 
-    // --- LÓGICA AGREGADA PARA LA GESTIÓN DE USUARIOS ---
-    const handleCreateUser = async () => {
-        if (!newUserEmail || !newUserPassword || !newUserRole) {
-            setErrorMessage('Todos los campos de usuario son obligatorios.');
-            return;
-        }
-        try {
-            await axios.post('/api/users', { email: newUserEmail, password: newUserPassword, role: newUserRole }, config);
-            setNewUserEmail('');
-            setNewUserPassword('');
-            setNewUserRole('');
-            setSuccessMessage('Usuario creado exitosamente.');
-            fetchUsers(); // Recargar la lista de usuarios
-        } catch (error) {
-            setErrorMessage('Error al crear el usuario.');
-            console.error(error);
-        }
-    };
-    
+    //eliminar usuarios  
     const handleDeleteUser = async (userId: string) => {
         try {
             await axios.delete(`/api/users/${userId}`, config);
@@ -163,51 +143,44 @@ const UserManagement: React.FC = () => {
         }
     };
     
-    // La interfaz de usuario (JSX)
     return (
         <Box sx={{ p: 4 }}>
-            <Typography variant="h4" gutterBottom>Panel de Administración</Typography>
-            {successMessage && <Alert severity="success" sx={{ mb: 2 }}>{successMessage}</Alert>}
-            {errorMessage && <Alert severity="error" sx={{ mb: 2 }}>{errorMessage}</Alert>}
-
-            {/* --- Sección de Gestión de Roles --- */}
+            {/* Sección de Gestión de Roles */}
             <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
-                <Typography variant="h5" gutterBottom>Gestión de Roles</Typography>
+                <Typography variant="h5" gutterBottom>Creación de roles</Typography>
                 <Box sx={{ display: 'flex', flexDirection:'column', gap: 2, mb: 2 }}>
-                    <TextField
-                        label="Nombre del Nuevo Rol"
-                        value={newRoleName}
-                        onChange={(e) => setNewRoleName(e.target.value)}
-                        fullWidth
-                    />
-                    {/* --- NUEVO COMPONENTE DE SELECCIÓN DE PERMISOS --- */}
-                    <FormControl fullWidth>
-                    <InputLabel>Permisos</InputLabel>
-                    <Select
+                <TextField
+                    label="Nombre"
+                    value={newRoleName}
+                    onChange={(e) => setNewRoleName(e.target.value)}
+                    fullWidth
+                />
+                <FormControl fullWidth>
+                <InputLabel>Permisos a otorgar</InputLabel>
+                <Select
                     multiple
                     value={newRolePermissions}
                     onChange={(e) => setNewRolePermissions(e.target.value as string[])}
                     renderValue={(selected) => (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {selected.map((value) => (
-                            <Chip key={value} label={value} />
-                        ))}
-                    </Box>
-                )}
-            >
-                {allPermissions.map((permission) => (
-                    <MenuItem key={permission} value={permission}>
-                        <Checkbox checked={newRolePermissions.indexOf(permission) > -1} />
-                        <ListItemText primary={permission} />
-                    </MenuItem>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            {selected.map((value) => (
+                                <Chip key={value} label={value} />
+                    ))}
+        </Box>
+        )}>   
+        {allPermissions.map((permission) => (
+            <MenuItem key={permission} value={permission}>
+                <Checkbox checked={newRolePermissions.indexOf(permission) > -1} />
+                <ListItemText primary={permission} />
+            </MenuItem>
                 ))}
             </Select>
         </FormControl>
-        {/* --- FIN DEL NUEVO COMPONENTE --- */}
-                    <Button variant="contained" color="primary" onClick={handleCreateRole}>
-                        Crear Rol
-                    </Button>
-                </Box>
+        
+        <Button variant='outlined' color="info" onClick={handleCreateRole}>
+            Crear Rol
+        </Button>
+        </Box>
                 <List>
                     {roles.map(role => (
                         <ListItem key={role._id} secondaryAction={
@@ -221,34 +194,10 @@ const UserManagement: React.FC = () => {
                 </List>
             </Paper>
 
-            {/* --- Sección de Gestión de Usuarios --- */}
+            {/* Sección de Gestión de Usuarios */}
             <Paper elevation={3} sx={{ p: 3 }}>
-                <Typography variant="h5" gutterBottom>Gestión de Usuarios</Typography>
+                <Typography variant="h5" gutterBottom>Gestión de usuarios</Typography>
                 <Box component="form" sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
-                    <TextField
-                        label="Email del Nuevo Usuario"
-                        value={newUserEmail}
-                        onChange={(e) => setNewUserEmail(e.target.value)}
-                    />
-                    <TextField
-                        label="Contraseña del Nuevo Usuario"
-                        type="password"
-                        value={newUserPassword}
-                        onChange={(e) => setNewUserPassword(e.target.value)}
-                    />
-                    <Select
-                        value={newUserRole}
-                        onChange={(e) => setNewUserRole(e.target.value)}
-                        displayEmpty
-                    >
-                        <MenuItem value="" disabled>Seleccionar Rol</MenuItem>
-                        {roles.map(role => (
-                            <MenuItem key={role._id} value={role._id}>{role.name}</MenuItem>
-                        ))}
-                    </Select>
-                    <Button variant="contained" color="primary" onClick={handleCreateUser}>
-                        Crear Usuario
-                    </Button>
                 </Box>
                 <List>
                     {users.map(user => (

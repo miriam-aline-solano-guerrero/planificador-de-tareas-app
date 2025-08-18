@@ -3,8 +3,6 @@ import mongoose, { Schema } from "mongoose";
 import User, { IUser } from '../models/User';
 import Role from "../models/Role";
 
-// Definimos la interfaz para la solicitud autenticada, que contiene el ID de usuario y el ID de rol
-// Esta interfaz debe ser consistente con la de `authMiddleware.ts` y `permissionMiddleware.ts`
 interface AuthenticatedRequest extends Request {
     user?: {
         _id: Schema.Types.ObjectId;
@@ -13,7 +11,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 /**
- * @desc    Obtener todos los usuarios (solo para administradores)
+ * @desc    Obtener todos los usuarios (rol admin)
  * @route   GET /api/users
  * @access  Private (manage_users)
  */
@@ -29,7 +27,7 @@ export const getUsers = async (req: AuthenticatedRequest, res: Response): Promis
     }
 };
 
-// --- NUEVA FUNCIÓN PARA OBTENER COLABORADORES ---
+//OBTENER COLABORADORES
 export const getCollaborators = async (req: AuthenticatedRequest, res: Response) => {
     try {
         // Obtenemos todos los usuarios, pero solo sus ID, nombre y email
@@ -42,7 +40,7 @@ export const getCollaborators = async (req: AuthenticatedRequest, res: Response)
 };
 
 /**
- * @desc    Actualizar el rol de un usuario (solo para administradores)
+ * @desc    Actualizar el rol de un usuario (rol admin)
  * @route   PUT /api/users/:id/role
  * @access  Private (manage_users)
  */
@@ -83,7 +81,7 @@ export const updateUserRole = async (req: AuthenticatedRequest, res: Response): 
 };
 
 /**
- * @desc    Actualizar un usuario (solo el dueño o un admin)
+ * @desc    Actualizar usuarios (admin)
  * @route   PUT /api/users/:id
  * @access  Private
  */
@@ -129,7 +127,7 @@ export const updateUser = async (req: AuthenticatedRequest, res: Response): Prom
 };
 
 /**
- * @desc    Eliminar un usuario (solo el dueño o un admin)
+ * @desc    Eliminar usuarios (rol admin)
  * @route   DELETE /api/users/:id
  * @access  Private
  */

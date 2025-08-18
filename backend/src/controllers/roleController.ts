@@ -3,24 +3,22 @@ import Role from '../models/Role';
 import mongoose from 'mongoose';
 
 const ALL_PERMISSIONS = [
-    'read_users',
-    'create_users',
-    'update_users',
-    'delete_users',
-    'read_roles',
-    'create_roles',
-    'update_roles',
-    'delete_roles',
     'read_tasks',
     'create_tasks',
     'update_tasks',
-    'delete_tasks'
+    'delete_tasks',
+    'edit_own_task', 
+    'create_task', 
+    'update_tasks', 
+    'delete_own_task'
 ];
 
+//obtener todos los permisos
 export const getAllPermissions = (req: Request, res: Response) => {
     res.status(200).json(ALL_PERMISSIONS);
 };
 
+//obtener todos los roles
 export const getRoles = async (req: Request, res: Response): Promise<void> => {
   try {
     const roles = await Role.find({});
@@ -30,6 +28,7 @@ export const getRoles = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+//crear nuevos roles
 export const createRole = async (req: Request, res: Response): Promise<void> => {
   const { name, permissions } = req.body;
   if (!name || !permissions) {
@@ -48,6 +47,7 @@ export const createRole = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
+//actualizar un rol
 export const updateRole = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const { name, permissions } = req.body;
@@ -71,6 +71,7 @@ export const updateRole = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
+//eliminar roles
 export const deleteRole = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   if (!mongoose.Types.ObjectId.isValid(id)) {

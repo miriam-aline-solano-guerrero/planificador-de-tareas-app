@@ -1,21 +1,23 @@
 import { Request, Response } from 'express';
 import User from '../models/User';
 import jwt from 'jsonwebtoken';
-import Role, { IRole } from '../models/Role'; // Importa la interfaz IRole
+import Role, { IRole } from '../models/Role'; 
 import { Schema, Types } from 'mongoose';
 
-// Interfaz para la respuesta del usuario
+// Interfaz que define la estructura de la respuesta que se envía después de un registro o inicio de sesión exitoso.
 interface UserResponse {
     _id: Schema.Types.ObjectId;
     name: string;
     email: string;
     role: {
-        _id: Schema.Types.ObjectId;
-        name: string;
+        _id: Schema.Types.ObjectId;// El ID del rol en formato ObjectId.
+        name: string;// El nombre del rol (ej. "user", "admin").
     };
-    token: string;
+    token: string;// El token JWT generado para la sesión del usuario.
 }
 
+// Función para generar un token JWT.
+// Recibe el ID del usuario y el ID del rol para incluirlos en el token.
 const generateToken = (id: string, roleId: string): string => {
     return jwt.sign({ id, roleId }, process.env.JWT_SECRET as string, {
         expiresIn: '1d',
@@ -35,7 +37,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
             return;
         }
 
-        // --- CAMBIO CLAVE: Agregamos el tipado explícito para Mongoose ---
+        //tipado explícito para Mongoose
         const defaultRole = await Role.findOne({ name: 'user' }) as IRole & { _id: Types.ObjectId };
 
         if (!defaultRole) {
@@ -48,7 +50,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
             name,
             email,
             password: password,
-            role: defaultRole._id, // Ahora TypeScript sabe que _id existe
+            role: defaultRole._id, 
         });
 
         if (!user) {

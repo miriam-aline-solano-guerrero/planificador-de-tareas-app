@@ -3,13 +3,12 @@ import { Request, Response, NextFunction } from 'express';
 import User from '../models/User';
 import { Schema, Document } from 'mongoose';
 
-// Interfaz que define la forma del documento que Mongoose devolverá
+// Interfaz define la forma del documento que Mongoose devuelve
 interface UserDocument extends Document {
     _id: Schema.Types.ObjectId;
     role: Schema.Types.ObjectId;
 }
 
-// Amplía la interfaz de Express Request para incluir el objeto 'user'
 interface AuthenticatedRequest extends Request {
     user?: {
         _id: Schema.Types.ObjectId;
@@ -17,6 +16,7 @@ interface AuthenticatedRequest extends Request {
     };
 }
 
+//para proteger rutas segun el rol y los permisos
 const protect = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     let token;
 

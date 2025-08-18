@@ -28,14 +28,37 @@ const createAdminAndRoles = async () => {
       // Si el rol no existe, lo crea con los permisos de admin
       adminRole = new Role({
         name: 'admin',
-        permissions: ['read_users', 'create_users', 'update_users', 'delete_users', 'read_roles', 'create_roles', 'update_roles', 'delete_roles']
+        permissions: [
+          'read_users', 
+          'delete_users', 
+          'read_roles', 
+          'create_roles', 
+          'update_roles', 
+          'delete_roles',
+          'read_tasks',
+          'create_tasks',
+          'update_tasks',
+          'delete_tasks'
+        ]
       });
       await adminRole.save();
       console.log('Rol "admin" creado con permisos.');
     } else {
       console.log('El rol "admin" ya existe.');
       // Actualiza los permisos si el rol ya existe
-      await Role.updateOne({ name: 'admin' }, { $set: { permissions: ['read_users', 'create_users', 'update_users', 'delete_users', 'read_roles', 'create_roles', 'update_roles', 'delete_roles'] } });
+      await Role.updateOne({ name: 'admin' }, 
+        { $set: { permissions: [
+          'read_users', 
+          'delete_users', 
+          'read_roles', 
+          'create_roles', 
+          'update_roles', 
+          'delete_roles',
+          'read_tasks',
+          'create_tasks',
+          'update_tasks',
+          'delete_tasks'
+        ] } });
       console.log('Permisos del rol "admin" actualizados.');
     }
     
@@ -44,14 +67,24 @@ const createAdminAndRoles = async () => {
     if (!userRole) {
         userRole = new Role({
             name: 'user',
-            permissions: ['read_tasks', 'create_tasks', 'update_tasks', 'delete_tasks', 'read_users']
+            permissions: [
+              'edit_own_task', 
+              'create_task', 
+              'update_tasks', 
+              'delete_own_task'
+            ]
         });
         await userRole.save();
         console.log('Rol "user" creado con permisos.');
     } else {
         console.log('El rol "user" ya existe.');
         // Actualiza los permisos del rol user
-        await Role.updateOne({ name: 'user' }, { $set: { permissions: ['read_tasks', 'create_tasks', 'update_tasks', 'delete_tasks', 'read_users'] } });
+        await Role.updateOne({ name: 'user' }, { $set: { permissions: [
+          'edit_own_task', 
+          'create_task', 
+          'update_tasks', 
+          'delete_own_task'
+        ] } });
         console.log('Permisos del rol "user" actualizados.');
     }
 

@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { useAuth } from '../context/AuthContext';
 import {
   Container,
   Box,
@@ -14,6 +13,11 @@ import {
   Link,
   Alert,
 } from '@mui/material';
+import { AuthProvider, User, useAuth } from '../context/AuthContext';
+
+interface RegisterResponse {
+  message: string;
+}
 
 const Auth = () => {
   const [name, setName] = useState('');
@@ -28,24 +32,22 @@ const Auth = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setSuccess(null); // Se usa la función corregida
+    setSuccess(null);
     
     try {
       if (isLogin) {
-        // En el backend, ya se manejará el prefijo '/api' del proxy
-        const response = await axios.post('/api/auth/login', { email, password });
+        const response = await axios.post<User>('/api/auth/login', { email, password });
         login(response.data);
         navigate('/tasks'); // Solo navega después de un login exitoso
       } else {
-        // La asignación del rol ahora se maneja en el backend, no en el frontend
-        const response = await axios.post('/api/auth/register', { name, email, password });
+        // La asignación del rol se maneja en el backend, no aquí
+        const response = await axios.post<RegisterResponse>('/api/auth/register', { name, email, password });
         
         setSuccess(response.data.message || '¡Registro exitoso! Puedes iniciar sesión ahora.');
         setEmail('');
         setPassword('');
         setName('');
-        // Al registrarse, no se navega inmediatamente, se muestra un mensaje
-        // para que el usuario inicie sesión.
+        // Al registrarse, no se navega, se muestra un mensaje para que el usuario inicie sesión
         setIsLogin(true); 
       }
     } catch (err: any) {

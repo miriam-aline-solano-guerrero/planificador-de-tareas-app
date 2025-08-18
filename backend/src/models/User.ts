@@ -17,15 +17,6 @@ const UserSchema: Schema = new Schema({
     role: { type: Schema.Types.ObjectId, ref: 'Role', required: true },
 });
 
-//UserSchema.pre('save', async function (next) {
-    //if (!this.isModified('password')) {
-        //return next();
-    //}
-    //const salt = await bcrypt.genSalt(10);
-   // this.password = await bcrypt.hash(this.password as string, salt);
-    //next();
-//});
-
 UserSchema.methods.matchPassword = async function (enteredPassword: string): Promise<boolean> {
     return enteredPassword === this.password;
 };

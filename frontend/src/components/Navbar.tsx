@@ -38,18 +38,18 @@ const Navbar = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/login'); // <-- Corregido para redirigir a la ruta correcta
+    navigate('/login');
   };
 
   let menuItems = [
-    { text: 'Dashboard de Tareas', path: '/tasks', icon: <DashboardIcon /> },
-    { text: 'Crear Tarea', path: '/tasks/create', icon: <AddTaskIcon /> },
+    { text: 'Dashboard', path: '/tasks', icon: <DashboardIcon /> },
+    { text: 'Crear tarea', path: '/tasks/create', icon: <AddTaskIcon /> },
     { text: 'Avances', path: '/progress', icon: <TrendingUpIcon /> },
   ];
 
   if (!loading && user && user.role && user.role.name === 'admin') {
     menuItems.push({
-      text: 'Panel de Administración',
+      text: 'Gestión',
       path: '/admin',
       icon: <AdminPanelSettingsIcon />,
     });
@@ -75,39 +75,42 @@ const Navbar = () => {
 
   return (
     <AppBar color="secondary" position="static">
-      <Toolbar>
-        <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-          <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-            App de Tareas
-          </Link>
-        </Typography>
+  <Toolbar>
+    {!loading && user && (
+      <IconButton
+        size="large"
+        edge="start"
+        color="inherit"
+        aria-label="menu"
+        sx={{ mr: 2 }}
+        onClick={toggleDrawer(true)}
+      >
+        <MenuIcon />
+      </IconButton>
+    )}
 
-        {!loading ? (
-          user ? (
-            <>
-              <IconButton
-                size="large"
-                edge="start"
-                color="inherit"
-                aria-label="menu"
-                sx={{ mr: 2 }}
-                onClick={toggleDrawer(true)}
-              >
-                <MenuIcon />
-              </IconButton>
-              <Drawer anchor="left" open={drawerOpen} onClose={toggleDrawer(false)}>
-                {drawerList()}
-              </Drawer>
-              <Button color="inherit" onClick={handleLogout}>Cerrar Sesión</Button>
-            </>
-          ) : (
-            <Button color="inherit" component={Link} to="/login">
-              Iniciar Sesión
-            </Button>
-          )
-        ) : null}
-      </Toolbar>
-    </AppBar>
+    <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+      <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
+        Inicio
+      </Link>
+    </Typography>
+    
+    {!loading ? (
+      user ? (
+        <>
+          <Drawer anchor="left" open={drawerOpen} onClose={toggleDrawer(false)}>
+            {drawerList()}
+          </Drawer>
+          <Button color="inherit" onClick={handleLogout}>Cerrar Sesión</Button>
+        </>
+      ) : (
+        <Button color="inherit" component={Link} to="/login">
+          Iniciar Sesión
+        </Button>
+      )
+    ) : null}
+  </Toolbar>
+</AppBar>
   );
 };
 

@@ -8,9 +8,8 @@ interface AdminProtectedRouteProps {
 }
 
 const AdminProtectedRoute = ({ children }: AdminProtectedRouteProps) => {
-  const { user, loading } = useAuth(); // Asume que tu useAuth tiene un estado 'loading'
+  const { user, loading } = useAuth(); 
 
-  // Si el contexto de autenticación aún está cargando el usuario
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -24,7 +23,7 @@ const AdminProtectedRoute = ({ children }: AdminProtectedRouteProps) => {
     return <Navigate to="/login" replace />;
   }
 
-  // Si el usuario es un admin, renderiza los hijos
+  // Si el usuario es un admin, renderiza
   return <>{children}</>;
 };
 

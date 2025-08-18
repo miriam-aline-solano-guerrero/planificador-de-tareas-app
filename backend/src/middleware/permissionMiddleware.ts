@@ -26,13 +26,13 @@ const permissionMiddleware = (requiredPermission: string) => {
                 return res.status(403).json({ message: 'Rol de usuario no válido.' });
             }
 
-            // --- Lógica añadida para dar acceso total al rol 'admin' ---
-            // Si el rol del usuario es 'admin', se le concede el acceso sin verificar el permiso.
+            //dar acceso total al rol 'admin'
+            // Si el rol del usuario es 'admin', se le concede el acceso sin verificar permisos
             if (role.name === 'admin') {
                 return next();
             }
 
-            // Si no es 'admin', verificamos si tiene el permiso requerido.
+            // Si no es 'admin', se verifica si tiene el permiso requerido
             if (role.permissions.includes(requiredPermission)) {
                 next();
             } else {

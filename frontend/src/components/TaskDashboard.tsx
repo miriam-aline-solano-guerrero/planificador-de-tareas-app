@@ -5,8 +5,9 @@ import { useNavigate } from 'react-router-dom';
 import {
     Container, Typography, List, ListItem, ListItemText,
     CircularProgress, Alert, Box, Paper, Checkbox, IconButton,
-    Collapse, Button,
-    Chip
+    Collapse,
+    Chip,
+    Button
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -14,7 +15,6 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import TaskEditFormModal from './TaskEdit';
 
-// --- Interfaces para la lista de tareas ---
 interface User {
     _id: string;
     name: string;
@@ -46,14 +46,14 @@ export interface Task {
 }
 
 const TaskDashboard = () => {
-    const { token, user, isAdmin } = useAuth(); // <--- IMPORTANTE: Obtener `user` e `isAdmin` del contexto
+    const { token, user, isAdmin } = useAuth();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [expandedTask, setExpandedTask] = useState<string | null>(null);
     const navigate = useNavigate();
 
-    // Estado para el modal de edición
+    // Estado para edición de tareas
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
@@ -63,6 +63,7 @@ const TaskDashboard = () => {
         },
     };
 
+    //obtener las tareas
     const fetchTasks = async () => {
         if (!token) {
             setLoading(false);
@@ -70,8 +71,7 @@ const TaskDashboard = () => {
         }
         try {
             setLoading(true);
-            //ruta para todas las tareas? para el administrador, crear desde el back?
-            const endpoint = isAdmin ? '/api/tasks' : '/api/tasks/my';
+            const endpoint = isAdmin ? '/api/tasks' : '/api/tasks/';
             const response = await axios.get<Task[]>(endpoint, config);
             setTasks(response.data);
             setError(null);
@@ -93,7 +93,7 @@ const TaskDashboard = () => {
             setLoading(false);
             setError('Debes iniciar sesión para ver las tareas.');
         }
-    }, [token, isAdmin]); // <--- IMPORTANTE: Volver a cargar las tareas si cambia el rol
+    }, [token, isAdmin]); // Volver a cargar las tareas si cambia el rol
 
     const handleOpenEditModal = (task: Task) => {
         setSelectedTask(task);
@@ -107,13 +107,8 @@ const TaskDashboard = () => {
     };
 
     const handleToggleCompleted = async (task: Task) => {
-        if (task.completed) {
-            alert('Esta tarea ya está completada.');
-            return;
-        }
-
         try {
-            // El backend validará las dependencias al intentar completar la tarea
+            // El backend valida las dependencias al intentar completar la tarea
             await axios.put(`/api/tasks/${task._id}`, { completed: true }, config);
             // Actualiza el estado si la operación es exitosa
             setTasks(prevTasks => 
@@ -121,14 +116,8 @@ const TaskDashboard = () => {
                     t._id === task._id ? { ...t, completed: true } : t
                 )
             );
-        } catch (err: any) {
-            if (isAxiosError(err) && err.response?.status === 400) {
-                const incompleteTasks = err.response.data.incompleteTasks;
-                alert(`${err.response.data.message}\n\nDeberás completar primero:\n- ${incompleteTasks.join('\n- ')}`);
-            } else {
-                console.error('Error al actualizar la tarea:', err.response?.data || err.message);
-                setError('No se pudo actualizar el estado de la tarea.');
-            }
+        } catch {
+            console.log(error);
         }
     };
 
@@ -159,15 +148,15 @@ const TaskDashboard = () => {
         setExpandedTask(isTaskExpanded(taskId) ? null : taskId);
     };
     
-    // --- NUEVA LÓGICA: Lógica de permisos para los botones ---
+    //permisos para los botones
     const canModifyTask = (task: Task) => {
-        // Un admin puede editar cualquier tarea
+        // Un rol admin puede editar cualquier tarea
         if (isAdmin) return true;
-        // Un usuario normal solo puede editar las suyas
+        // Un rol usuario solo puede editar las suyas
         return user?._id === task.user._id;
     };
 
-    // --- NUEVA FUNCIÓN: Comprobar si la tarea está bloqueada por dependencias ---
+    // Comprobar si la tarea está bloqueada por dependencias 
     const isTaskBlocked = (task: Task): boolean => {
         return !!task.dependencies?.some(dep => !dep.completed);
     };
@@ -175,9 +164,9 @@ const TaskDashboard = () => {
     return (
         <Container maxWidth="md" sx={{ mt: 4 }}>
             <Typography variant="h4" component="h2" gutterBottom>
-                {isAdmin ? "Todas las Tareas del Sistema" : "Mis Tareas"}
+                {isAdmin ? "Panel de tareas" : "Mis tareas"}
             </Typography>
-            <Button variant="contained" color="primary" onClick={() => navigate('/tasks/create')}>
+            <Button variant="outlined" color="secondary" onClick={() => navigate('/tasks/create')}>
                 Crear Nueva Tarea
             </Button>
 
@@ -192,13 +181,13 @@ const TaskDashboard = () => {
                     <List>
                         {tasks.map(task => {
                             const blocked = isTaskBlocked(task);
-                            const checkboxColor = blocked ? 'error' : 'primary';
+                            const checkboxColor = blocked ? 'error' : 'secondary';
 
-                            return (
+                           return (
                                 <Paper elevation={1} sx={{ mb: 1 }} key={task._id}>
                                     <ListItem sx={{ textDecoration: task.completed ? 'line-through' : 'none' }}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                                            {/* --- CAMBIOS PARA DEPENDENCIAS: Checkbox con validación visual --- */}
+                                            {/*DEPENDENCIAS: Checkbox*/}
                                             <Checkbox
                                                 edge="end"
                                                 onChange={() => handleToggleCompleted(task)}
@@ -210,7 +199,7 @@ const TaskDashboard = () => {
                                                 primary={
                                                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                                         {task.title}
-                                                        {/* Icono de bloqueo si la tarea está bloqueada */}
+                                                        {/* Icono de bloqueo cuando la tarea está bloqueada */}
                                                         {blocked && !task.completed && (
                                                             <Box sx={{ ml: 1, display: 'flex', alignItems: 'center' }}>
                                                                 <span role="img" aria-label="blocked" style={{ fontSize: '1.2rem', color: 'red' }}>🔒</span>
@@ -220,16 +209,16 @@ const TaskDashboard = () => {
                                                 }
                                                 secondary={
                                                     <>
-                                                        {task.description && <div>{task.description}</div>}
+                                                        {task.description && <div>Descripción: {task.description}</div>}
                                                         {task.dueDate && <div>Fecha de entrega: {new Date(task.dueDate).toLocaleDateString()}</div>}
-                                                        {isAdmin && task.user && <div>Creada por: {task.user.email}</div>}
+                                                        {isAdmin && task.user && <div>Creada por: {task.user.name} | {task.user.email}</div>}
                                                         {task.assignedTo && task.assignedTo.length > 0 && (
-                                                            <div>Asignado a: {task.assignedTo.map(u => u.email).join(', ')}</div>
+                                                            <div>Asignado a: {task.assignedTo.map(u => u.name).join(', ')}</div>
                                                         )}
-                                                        {/* --- CAMBIOS PARA DEPENDENCIAS: Mostrar las dependencias --- */}
+                                                        {task.completed && <div>Estado de la tarea: {task.completed}</div>}
                                                         {task.dependencies && task.dependencies.length > 0 && (
                                                             <div>
-                                                                Depende de: 
+                                                                Depende de:
                                                                 {task.dependencies.map(dep => (
                                                                     <Chip
                                                                         key={dep._id}
